@@ -1,0 +1,16 @@
+ACTION_SIZE: 4
+Levine_Implementation: true
+STORED_ACTION_SIZE: 1
+STORED_STATE_SIZE: 8
+action_noise: 1.0
+antithetic: false
+avg_episode_length: 70
+batch_size: 256
+beta_reward_weighting: 1.0
+continuous_actions: false
+desire_scalings: null
+desire_states: false
+desired_reward: 200
+desires_size: 1
+discount_factor: 0.99
+display:

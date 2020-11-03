@@ -1,0 +1,10 @@
+cma
+argparse
+gym[box2d]
+box2d
+tqdm
+numpy
+ray
+pytorch
+pytorch-lightning
+tensorboard

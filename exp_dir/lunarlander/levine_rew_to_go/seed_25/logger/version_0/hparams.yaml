@@ -1,0 +1,6 @@
+ACTION_SIZE: 4
+Levine_Implementation: true
+STORED_ACTION_SIZE: 1
+STORED_STATE_SIZE: 8
+action_noise: 1.0
+antithetic: false

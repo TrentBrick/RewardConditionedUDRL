@@ -1,12 +1,12 @@
 # Reward Conditioned Policies / Upside Down Reinforcement Learning
 
-This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) neither of which shared their implementations. 
+This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) neither of which shared their implementations.
 
 This code base works for LunarLander in that the agent will learn to achieve a high score. However, performance is not as high as that documented in the original papers, this is especially the case for [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf). Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to such different performance.
 
 There are a few other implementations of Upside Down Reinforcement Learning (UDRL) online already but these implementations either do not work or are very seed sensitive. This code base is not only more robust and performant across seeds but is also the first implementation of Reward Conditioned Policies. 
 
-## Relevant Scripts: 
+## Relevant Scripts:
 
 * `train.py` - has almost all of the relevant configuration settings for the code. Also starts either ray tune (for hyperparam optimization) or a single model (for debugging). Able to switch between different model and learning types in a modular fashion
 * `bash_train.sh` - uses GNU parallel to run multiple seeds of a model
@@ -14,29 +14,34 @@ There are a few other implementations of Upside Down Reinforcement Learning (UDR
 * `control/agent.py` - runs rollouts of the environment and processes their rewards
 * `envs/gym_params.py` - provides environment specific parameters
 * `exp_dir/` - contains all experiments separated by: environment_name/experiment_name/seed/logged_versions
-* `models/upsd_model.py` - contains the [Schmidhuber](https://arxiv.org/pdf/1912.13465.pdf) and [Levine](https://arxiv.org/abs/1912.02877) upside down models.
+* `models/upsd_model.py` - contains the [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) upside down models.
 * `models/advantage_model.py` - model to learn the advantage of actions as in the Levine paper
 
 ## Dependencies:
-Tested with Python 3.7.5 (should work with Python 3.5 and higher.)
+Tested with Python 3.7.5 (should work with Python 3.5 and higher).
 
-If using Python out of the box use: 
+Install Pytorch 1.7.0 (using CUDA or not depending on if you have a GPU)
+<https://pytorch.org/get-started/locally/> 
+
+If using Pip out of the box use: 
 `pip3 install -r RewardConditionedUDRL/requirements.txt`
 
 If using Conda then ensure pip3 is installed with conda and then run: 
 `pip3 install -r RewardConditionedUDRL/requirements.txt`
 
-## Running the code: 
+## Running the code:
 
-To run a single model of the lunar-lander call:
+To run a single model of the LunarLander with the UDRL implementation call:
 
 ```
-python trainer.py --gamename lunarlander \                                                  
---exp_name levine_reward_norm_weights \
+python trainer.py --implementation UDRL --gamename lunarlander \                                                  
+--exp_name debug \
 --num_workers 1 --no_reload --seed 25
 ```
 
-Environments that are currently supported are lunarlander and lunarlander-sparse. Where the sparse version gives all of the rewards at the very end.
+Implementations are `UDRL`, `RCP-R` and `RCP-A` (Reward Conditioned Policies with Rewards and Advantages, respectively). For RCP the default is with exponential weighting rewards rather than advantages. 
+
+Environments that are currently supported are `lunarlander` and `lunarlander-sparse`. Where the sparse version gives all of the rewards at the very end.
 
 To run multiple seeds call `bash bash_train.sh` changing the trainer.py settings and experiment name as is desired.
 
@@ -46,7 +51,10 @@ To run Ray hyperparameter tuning, uncomment all of the `ray.tune()` functions fo
 
 All training results along with important metrics are saved out to Tensorboard. To view them call: 
 
-`tensorboard --logdir fem/exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*`
+`tensorboard --logdir RewardConditionedUDRL/exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*`
+
+If you have run `python trainer.py` then the output will be in:
+`tensorboard --logdir RewardConditionedUDRL/exp_dir/lunarlander/debug/seed_25/logger/`
 
 To visualize the performance of a trained model, locate the model's checkpoint which will be under: `exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt` and put this inside `load_name = join(game_dir, 'epoch=1940_v0.ckpt')` in trainer.py then call the code with with correct experiment name and `--eval 1` flag.
 
@@ -82,6 +90,12 @@ Then with my server on I get its external IP address and in VSCode remote explor
 `ssh -i ~/.ssh/id_rsa SSH_KEY_USERNAME@SERVER_IP_ADDRESS`
 Before following the instructions.
 One thing that first caught me up is that you need to give the ssh prefix not the the specific .pub file!
+
+## TODOs
+
+Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)
+
+
 
 ## Acknowledgements
 

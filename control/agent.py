@@ -11,9 +11,7 @@ import gym
 import gym.envs.box2d
 from torch.distributions import Normal, Categorical 
 #from utils import sample_mdrnn_latent
-from models import RSSModel 
 from models import UpsdModel, UpsdBehavior
-from control import Planner
 from envs import get_env_params
 import random 
 
@@ -30,6 +28,7 @@ class WeightedNormal:
 
 import scipy.signal
 def discount_cumsum(x, discount):
+    # Taken from OpenAI spinning up. 
     """
     magic from rllab for computing discounted cumulative sums of vectors.
 
@@ -54,8 +53,7 @@ class Agent:
         desire_dict = None, 
         model_version = 'checkpoint',
         return_plan_images=False,
-        advantage_model=None, 
-        backward_model=None):
+        advantage_model=None):
         """ Runs and collects rollouts """
 
         self.gamename = gamename
@@ -65,7 +63,6 @@ class Agent:
         self.take_rand_actions = take_rand_actions
         self.discount_factor = self.hparams['discount_factor']
         self.advantage_model = advantage_model
-        self.backward_model = backward_model
 
         self.desire_dict = desire_dict
         self.td_lambda = self.hparams['td_lambda']
@@ -76,14 +73,6 @@ class Agent:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.time_limit = self.env_params['time_limit']
         self.num_action_repeats = self.env_params['num_action_repeats']
-
-        # transform used on environment generated observations. 
-        if self.env_params['use_vae']:
-            self.transform = transforms.Compose([
-                    transforms.ToPILImage(),
-                    transforms.Resize((self.env_params['IMAGE_RESIZE_DIM'], self.env_params['IMAGE_RESIZE_DIM'])),
-                    transforms.ToTensor()
-                ])
 
         if model:
             self.model = model 
@@ -117,20 +106,6 @@ class Agent:
             actions[:,ind] = torch.clamp(actions[:,ind], min=l, max=h)
         return actions
 
-    def get_next_obs(self, obs, current_desires_dict):
-
-        # run inference for what is desired next!
-        for_net = [ obs]
-        if self.hparams['desire_cum_rew']:
-            for_net.append(current_desires_dict['cum_rew'].unsqueeze(1))
-        else: # use discounted rewards to go!
-            for_net.append(current_desires_dict['discounted_rew_to_go'].unsqueeze(1))
-        if self.hparams['desire_horizon']:
-            for_net.append(current_desires_dict['horizon'].unsqueeze(1))
-
-        backward_outs = self.backward_model.give_modes(for_net)
-        return backward_outs[0], backward_outs[1]
-
     def rollout(self, render=False, display_monitor=None,
             greedy=False):
         """ Executes a rollout and returns cumulative reward along with
@@ -157,8 +132,8 @@ class Agent:
         # initialize all of the desires. 
         if not self.take_rand_actions:
             current_desires_dict = dict()
-            if self.hparams['desire_discounted_rew_to_go'] or self.hparams['desire_cum_rew'] or self.hparams['desire_next_obs']:
-                if self.hparams['use_Levine_desire_sampling']:
+            if self.hparams['desire_discounted_rew_to_go'] or self.hparams['desire_cum_rew']:
+                if self.hparams['use_RCP_desire_sampling']:
                     init_rew = Normal(self.desire_dict['reward_dist'][0], 
                                         self.desire_dict['reward_dist'][1]).sample([1])
                 else: 
@@ -166,7 +141,7 @@ class Agent:
                     
             # cumulative and reward to go start the same/sampled the same. then RTG is 
             # annealed. 
-            if self.hparams['desire_discounted_rew_to_go'] or self.hparams['desire_next_obs']:
+            if self.hparams['desire_discounted_rew_to_go']:
                 current_desires_dict['discounted_rew_to_go'] = init_rew
             
             if self.hparams['desire_cum_rew']:
@@ -175,21 +150,9 @@ class Agent:
             if self.hparams['desire_horizon']:
                 current_desires_dict['horizon'] = torch.Tensor([self.desire_dict['horizon']])
                 
-            #if self.hparams['desire_final_state']:
-            #    #current_desires_dict['final_state'] = torch.Tensor([ self.desire_dict['final_state'] ] )
-            #    current_desires_dict['final_state'] = torch.Tensor([  ] )
-            
-            if self.hparams['desire_next_obs']:
-                final_o, next_o = self.get_next_obs(torch.Tensor(obs).unsqueeze(0), current_desires_dict)
-                current_desires_dict['final_state'] =final_o.unsqueeze(0) #torch.Tensor([ final_o ] )
-                current_desires_dict['next_obs'] = next_o.unsqueeze(0)#torch.Tensor([ next_o ] ) 
-                
             if self.hparams['desire_advantage']:
                 current_desires_dict['advantage'] = Normal(self.desire_dict['advantage_dist'][0], 
                                         self.desire_dict['advantage_dist'][1]).sample([1])
-
-        # useful if use an LSTM. 
-        #hidden, state, action = self.model.init_hidden_state_action(1)
 
         if self.gamename == 'carracing':
             sim_rewards_queue = []
@@ -213,10 +176,7 @@ class Agent:
                     display_monitor.set_data(obs)
                 self.env.render()
 
-            if self.env_params['use_vae']:
-                obs = self.transform(obs).unsqueeze(0)#.to(self.device)
-            else: 
-                obs = torch.Tensor(obs).unsqueeze(0)#.to(self.device)
+            obs = torch.Tensor(obs).unsqueeze(0)#.to(self.device)
 
             if self.take_rand_actions:
                 action = self.env.action_space.sample()
@@ -296,8 +256,8 @@ class Agent:
             # update reward desires! 
             if not self.take_rand_actions:
 
-                if self.hparams['desire_discounted_rew_to_go'] or self.hparams['desire_next_obs']:
-                    if self.hparams['use_Levine_desire_sampling']:
+                if self.hparams['desire_discounted_rew_to_go']:
+                    if self.hparams['use_RCP_desire_sampling']:
                         pass 
                     else: 
                         current_desires_dict['discounted_rew_to_go'] = torch.Tensor( [min(current_desires_dict['discounted_rew_to_go']-reward, self.env_params['max_reward'])])
@@ -307,26 +267,10 @@ class Agent:
 
                 if self.hparams['desire_horizon']:
                     current_desires_dict['horizon'] = torch.Tensor ( [max( current_desires_dict['horizon']-1, 1)])
-                    
-                if self.hparams['desire_final_state']:
-                    if self.hparams['delta_state']:
-                        # need to ensure that this is passed onto the next_obs too! currently doesnt take from curr dict 
-                        raise Exception('need to modifying the buffer to save the delta states first')
-                        #current_desires_dict['final_state'] = torch.Tensor(obs-[current_desires_dict['final_state']])
-                    else: 
-                        pass
                 
                 if self.hparams['desire_advantage']:
                     current_desires_dict['advantage'] = Normal(self.desire_dict['advantage_dist'][0], 
                                             self.desire_dict['advantage_dist'][1]).sample([1])
-                    
-                if self.hparams['desire_next_obs']:
-                    # as obs has not yet been updated here!!! 
-                    # important this is last as some parameters above are used. 
-                    final_o, next_o = self.get_next_obs(obs, current_desires_dict)
-                    current_desires_dict['final_state'] =final_o.unsqueeze(0) #torch.Tensor([ final_o ] )
-                    current_desires_dict['next_obs'] = next_o.unsqueeze(0)#torch.Tensor([ next_o ] ) 
-                    #current_desires_dict['next_obs'] = self.get_next_obs(next_obs, current_desires_dict)
 
             # save out things.
             # doesnt save out the time so dont need to worry about it here. 
@@ -335,8 +279,6 @@ class Agent:
                                         [obs, next_obs, reward, action, hit_done ]):
                     if key=='obs':
                         var = var.squeeze().detach().numpy()
-                    elif key=='obs2' and self.env_params['use_vae']:
-                        var = self.transform(var).detach().numpy()
                     rollout_dict[key].append(var)
 
             # This is crucial. 
@@ -351,7 +293,7 @@ class Agent:
 
             list_of_keys = list(rollout_dict.keys())
             for k in list_of_keys: # list of tensors arrays.
-                # rewards to go here for levine
+                # rewards to go here for RCP
                 if k =='rew':
                     if self.advantage_model:
                         rollout_dict['raw_rew'] = np.asarray(rollout_dict[k]) # need for TD lambda

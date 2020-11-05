@@ -4,7 +4,9 @@ This is an open source library that seeks to replicate the results from the pape
 
 This code base works for LunarLander in that the agent will learn to achieve a high score. However, performance is not as high as that documented in the original papers, this is especially the case for [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf). Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to such different performance.
 
-There are a few other implementations of Upside Down Reinforcement Learning (UDRL) online already but these implementations either do not work or are very seed sensitive. This code base is not only more robust and performant across seeds but is also the first implementation of Reward Conditioned Policies. 
+There are a few other implementations of Upside Down Reinforcement Learning (UDRL) online already but these implementations either do not work or are very seed sensitive. This code base is not only more robust and performant across seeds but is also the first implementation of Reward Conditioned Policies.
+
+All experiments can be run on your local computer between five and ten hours of runtime depending on settings. Parallel processing is implemented to be able to run multple seeds at the same time. Because of Pytorch Lightning and Ray Tune implmementation, scaling up to more CPUs and GPUs is easy. 
 
 ## Relevant Scripts:
 
@@ -26,8 +28,10 @@ Install Pytorch 1.7.0 (using CUDA or not depending on if you have a GPU)
 If using Pip out of the box use: 
 `pip3 install -r RewardConditionedUDRL/requirements.txt`
 
-If using Conda then ensure pip3 is installed with conda and then run: 
-`pip3 install -r RewardConditionedUDRL/requirements.txt`
+If using Conda then ensure pip is installed with conda and then run the same above code.  
+
+If you want to test running with multiple seeds then install GNU Parallel: 
+`sudo apt install parallel`
 
 ## Running the code:
 
@@ -39,13 +43,18 @@ python trainer.py --implementation UDRL --gamename lunarlander \
 --num_workers 1 --no_reload --seed 25
 ```
 
-Implementations are `UDRL`, `RCP-R` and `RCP-A` (Reward Conditioned Policies with Rewards and Advantages, respectively). For RCP the default is with exponential weighting rewards rather than advantages. 
+Implementations are `UDRL`, `RCP-R` and `RCP-A` (Reward Conditioned Policies with Rewards and Advantages, respectively). For RCP the default is with exponential weighting rewards rather than advantages.
+For RCP exponential weighting is turned on by before you can use the flag `--no_expo_weighting` to turn it off.
 
 Environments that are currently supported are `lunarlander` and `lunarlander-sparse`. Where the sparse version gives all of the rewards at the very end.
 
 To run multiple seeds call `bash bash_train.sh` changing the trainer.py settings and experiment name as is desired.
 
-To run Ray hyperparameter tuning, uncomment all of the `ray.tune()` functions for desired hyperparamters to search over and set `use_tune=True`.
+To run Ray hyperparameter tuning, uncomment all of the `ray.tune()` functions for desired hyperparamters to search over and use the flag `--use_tune`.
+
+Checkpointing of model is turned on by default and will save a new version of the model whenever ... (this is defined at approx line 194 for trainer.py). To turn off model checkpointing add the flag `--no_checkpoint`
+
+Multi-seed training. To test the model running multple seeds in parallel, modify the code in `bash_train.sh` which uses GNU parallel to run multiple seeds where each seed gets its own core to run on. The default is running seeds 25 to 29 inclusive. To run more seeds it is advised to use Ray Tune and line approx. 181 of `trainer.py` can be used to define the seeds to be tried. Ray Tune provides performance of each agent but currentlyl lacks as granular information during training.
 
 ## Evaluating Training
 
@@ -53,10 +62,10 @@ All training results along with important metrics are saved out to Tensorboard. 
 
 `tensorboard --logdir RewardConditionedUDRL/exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*`
 
-If you have run `python trainer.py` then the output will be in:
-`tensorboard --logdir RewardConditionedUDRL/exp_dir/lunarlander/debug/seed_25/logger/`
+If you have run `python trainer.py` like in the above example (using seed 25 in the lunarlander environment and with debugging turned on) then the output can be seen by calling:
+`tensorboard --logdir RewardConditionedUDRL/exp_dir/lunarlander/debug/seed_25/logger/` and going to the URL generated. (Dont add the seed to the path if you are trying to view across seeds.)
 
-To visualize the performance of a trained model, locate the model's checkpoint which will be under: `exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt` and put this inside `load_name = join(game_dir, 'epoch=1940_v0.ckpt')` in trainer.py then call the code with with correct experiment name and `--eval 1` flag.
+To visualize the performance of a trained model, locate the model's checkpoint which will be under: `exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt` and use the flag `--eval_agent exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt`.
 
 ## Instructions for running on a Google Cloud VM:
 
@@ -95,7 +104,7 @@ One thing that first caught me up is that you need to give the ssh prefix not th
 
 Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)
 
-
+Implement video recording of the model during training. 
 
 ## Acknowledgements
 

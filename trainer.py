@@ -190,27 +190,22 @@ def main(args):
                 mkdir(dirr)
 
         logger = TensorBoardLogger(game_dir, "logger")
-        # have the checkpoint overwrite itself. 
-        every_checkpoint_callback = False 
-        # uncomment if want to save checkpoints of model being trained. 
-        '''every_checkpoint_callback = ModelCheckpoint(
+
+        # flag makes no_checkpoint become true otherwise it is false.
+        if not args.no_checkpoint:
+            every_checkpoint_callback = ModelCheckpoint(
             filepath=game_dir,
             save_top_k=1,
             verbose=False ,
             monitor='policy_loss',
-            mode='min',
+            mode='max',
             prefix=''
-        )'''
+            )
+        else: 
+            every_checkpoint_callback = False 
+            
         callback_list = []
-    '''best_checkpoint_callback = ModelCheckpoint(
-        filepath=filenames_dict['best'],
-        save_top_k=1,
-        verbose=True,
-        monitor='val_loss',
-        mode='min',
-        prefix=''
-    )'''
-
+    
     def run_lightning(config):
 
         if config['use_RCP_buffer']:
@@ -233,17 +228,22 @@ def main(args):
 
         model = LightningTemplate(game_dir, config, train_buffer, test_buffer)
 
-        if not args.no_reload:
+        if args.reload or args.eval_agent:
             # load in trained model: 
-            # TODO: enable plugging in experiment name from the command line rather than in here!
-            load_name = join(game_dir, 'epoch=1940_v0.ckpt')
+
+            # get name from either eval or reload:
+            if args.reload:
+                load_name = args.reload 
+            else:
+                load_name = args.eval_agent
             print('loading in from:', load_name)
             state_dict = torch.load(load_name)['state_dict']
             state_dict = {k[6:]:v for k, v in state_dict.items()}
             model.model.load_state_dict(state_dict)
-            print("Loaded in Model state!")
+            print("Loaded in Model!")
 
         if args.eval_agent:
+            # calls part of lightning. 
             model.eval_agent()
 
         else: 
@@ -262,10 +262,8 @@ def main(args):
         # trailing 20 epochs of mean reward obtained by rollouts (trailing to reduce noise)
         metric="mean_reward_20_epochs",
         mode="max",
-        # max amount of time. 
-        max_t=epochs,
-        # time to run before killing low performing jobs
-        grace_period=1000,
+        max_t=epochs, # max amount of time. 
+        grace_period=1000, # time to run before killing low performing jobs
         reduction_factor=4)
 
     reporter = CLIReporter(
@@ -295,6 +293,8 @@ if __name__ =='__main__':
     parser.add_argument('--no_expo_weighting', action='store_false',
                         help="If using RCP-A or RCP-R, whether or not to use the exponential weighting in the loss. On by default. ")
     
+    parser.add_argument('--no_checkpoint', action='store_true',
+                        help="Use this flag if don't want to save model checkpoints.")
     
     parser.add_argument('--gamename', type=str, default='lunarlander',
                         help="What Gym environment to train in.")
@@ -303,13 +303,13 @@ if __name__ =='__main__':
     parser.add_argument('--logdir', type=str, default='exp_dir',
                         help="Where things are logged and models are loaded from.")
     
-    parser.add_argument('--no_reload', action='store_true', default=True,
-                        help="Won't load in models for MODEL from the joint file. \
-                        NB. This will create new models with random inits and will overwrite \
-                        the best and checkpoints!")
-    parser.add_argument('--giving_pretrained', action='store_true',
-                        help="If pretrained models are being provided, avoids loading in an optimizer \
-                        or previous lowest loss score.")
+    parser.add_argument('--reload', type=str, default=None,
+                        help="Provide path for model to be reloaded in to continue training. \
+                        NB This will start again from epoch 1 and overwrite \
+                        the best and checkpoints during training! \
+                        Put in path for agent to be evaluated including the .ckpt")
+    parser.add_argument('--eval_agent', type=str, default=None,
+                        help="Able to eval the agent! Put in path for the model to be evaluated including the .ckpt ")
     
     parser.add_argument('--num_workers', type=int, help='Maximum number of workers.',
                         default=1)
@@ -317,8 +317,6 @@ if __name__ =='__main__':
                         "specified.")
     parser.add_argument('--seed', type=int, default=25,
                         help="Starter seed for reproducible results")
-    parser.add_argument('--eval_agent', type=bool, default=False,
-                        help="Able to eval the agent!")
 
     parser.add_argument('--use_tune', action='store_true',
                         help="Whether or not to use Ray Tune")

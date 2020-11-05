@@ -160,9 +160,13 @@ class LightningTemplate(pl.LightningModule):
         self.mean_reward_over_20_epochs.append( self.mean_reward_rollouts)
 
         if self.logger:
-            self.logger.experiment.add_scalar("mean_reward", np.mean(reward_losses), self.global_step)
-            self.logger.experiment.add_scalars('rollout_stats', {"std_reward":np.std(reward_losses),
-                "max_reward":np.max(reward_losses), "min_reward":np.min(reward_losses)}, self.global_step)
+            #self.logger.experiment.add_scalar("mean_reward", np.mean(reward_losses), self.global_step)
+            #self.logger.experiment.add_scalars('rollout_stats', {"std_reward":np.std(reward_losses),
+            #    "max_reward":np.max(reward_losses), "min_reward":np.min(reward_losses)}, self.global_step)
+            
+            self.log("mean_reward", np.mean(reward_losses))
+            self.log('rollout_stats', {"std_reward":np.std(reward_losses),
+                "max_reward":np.max(reward_losses), "min_reward":np.min(reward_losses)})
             
             to_write = dict()
             for k, v in self.desire_dict.items():
@@ -171,8 +175,12 @@ class LightningTemplate(pl.LightningModule):
                 else:
                     to_write[k] = v
 
-            self.logger.experiment.add_scalars('desires', to_write, self.global_step)
-            self.logger.experiment.add_scalar("steps", self.train_buffer.total_num_steps_added, self.global_step)
+            #self.logger.experiment.add_scalars('desires', to_write, self.global_step)
+            #self.logger.experiment.add_scalar("steps", self.train_buffer.total_num_steps_added, self.global_step)
+
+            self.log('desires', to_write)
+            self.log("steps", self.train_buffer.total_num_steps_added)
+
 
         if self.hparams['desire_advantage']:  
             # reset the desired stats. Important for RCP use advantage. 
@@ -189,9 +197,11 @@ class LightningTemplate(pl.LightningModule):
         if self.current_epoch % self.hparams['eval_every']==0 and self.logger:
             output = self.collect_rollouts(greedy=True, num_episodes=self.hparams['eval_episodes'])
             reward_losses = output[0]
-            self.logger.experiment.add_scalar("eval_mean", np.mean(reward_losses), self.global_step)
+            #self.logger.experiment.add_scalar("eval_mean", np.mean(reward_losses), self.global_step)
+            self.log('eval_mean', np.mean(reward_losses))
+        
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, validation=False):
         # run training on this data
         obs, act = batch['obs'], batch['act']
         
@@ -272,14 +282,19 @@ class LightningTemplate(pl.LightningModule):
             loss_weighting = torch.clamp( torch.exp(loss_weight_var/self.hparams['beta_reward_weighting']), max=self.hparams['max_loss_weighting'])
             pred_loss = pred_loss*loss_weighting
         pred_loss = pred_loss.mean(dim=0)
-        logs = {"policy_loss": pred_loss}
+
+        if validation: 
+            suffix = '_val'
+        else: 
+            suffix = ''
+        self.log("policy_loss"+suffix, pred_loss)
 
         # learn the advantage function too by adding it to the loss if this is the correct iteration. 
         if self.hparams['desire_advantage'] and batch_idx%self.hparams['val_func_update_iterval']==0:
             pred_loss += adv_loss 
-            logs["advantage_loss"] = adv_loss
+            self.log("advantage_loss"+suffix, adv_loss)
 
-        return {'loss':pred_loss, 'log':logs}
+        return pred_loss
 
     def _pred_loss(self, pred_action, real_action):
         if self.hparams['continuous_actions']: 
@@ -289,19 +304,15 @@ class LightningTemplate(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         batch_idx=0 # so that advantage_val_loss is always called. 
-        train_dict = self.training_step(batch, batch_idx)
-        train_dict['log']['policy_val_loss'] = train_dict['log'].pop('policy_loss')
-        if self.hparams['desire_advantage']:
-            train_dict['log']['advantage_val_loss'] = train_dict['log'].pop('advantage_loss')
-        return train_dict['log'] 
+        val_res = self.training_step(batch, batch_idx, validation=True)
 
-    def validation_epoch_end(self, outputs):
+    '''def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x["policy_val_loss"] for x in outputs]).mean()
         tensorboard_logs = {"val_loss": avg_loss}
         return {
                 "avg_val_loss": avg_loss,
                 "log": tensorboard_logs
-                }
+                }'''
 
     def train_dataloader(self):
         bs = BatchSampler( RandomSampler(self.train_buffer, replacement=True, 

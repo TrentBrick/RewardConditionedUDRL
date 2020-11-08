@@ -118,7 +118,7 @@ def main(args):
 
     # used throughout to ensure the order of desires is consistent.
     # advantage needs to go last because it is computed on the fly 
-    # in the training loop.  
+    # in the training loop. 
     config['desires_official_order'] = ['desire_discounted_rew_to_go',
     'desire_cum_rew', 'desire_horizon', 'desire_advantage']
 
@@ -183,9 +183,10 @@ def main(args):
         # Init save filenames 
         base_game_dir = join(args.logdir, args.gamename)
         exp_dir = join(base_game_dir, args.exp_name)
-        game_dir = join(exp_dir, 'seed_'+str(args.seed))
+        imp_dir = join(exp_dir, args.implementation)
+        game_dir = join(imp_dir, 'seed_'+str(args.seed))
         filenames_dict = { bc:join(game_dir, 'model_'+bc+'.tar') for bc in ['best', 'checkpoint'] }
-        for dirr in [base_game_dir, exp_dir, game_dir]:
+        for dirr in [base_game_dir, exp_dir, imp_dir, game_dir]:
             if not exists(dirr):
                 mkdir(dirr)
 
@@ -198,7 +199,7 @@ def main(args):
             save_top_k=1,
             verbose=False ,
             monitor='policy_loss',
-            mode='max',
+            mode='min',
             prefix=''
             )
         else: 

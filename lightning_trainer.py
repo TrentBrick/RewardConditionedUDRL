@@ -94,7 +94,8 @@ class LightningTemplate(pl.LightningModule):
         if self.current_epoch<self.hparams['random_action_epochs']:
             agent = Agent(self.hparams['gamename'], 
                 take_rand_actions=True,
-                hparams=self.hparams
+                hparams=self.hparams,
+                advantage_model=self.advantage_model
                 )
         else:
             agent = Agent(self.hparams['gamename'], 
@@ -160,13 +161,9 @@ class LightningTemplate(pl.LightningModule):
         self.mean_reward_over_20_epochs.append( self.mean_reward_rollouts)
 
         if self.logger:
-            #self.logger.experiment.add_scalar("mean_reward", np.mean(reward_losses), self.global_step)
-            #self.logger.experiment.add_scalars('rollout_stats', {"std_reward":np.std(reward_losses),
-            #    "max_reward":np.max(reward_losses), "min_reward":np.min(reward_losses)}, self.global_step)
-            
-            self.log("mean_reward", np.mean(reward_losses))
-            self.log('rollout_stats', {"std_reward":np.std(reward_losses),
-                "max_reward":np.max(reward_losses), "min_reward":np.min(reward_losses)})
+            self.logger.experiment.add_scalar("mean_reward", np.mean(reward_losses), self.global_step)
+            self.logger.experiment.add_scalars('rollout_stats', {"std_reward":np.std(reward_losses),
+                "max_reward":np.max(reward_losses), "min_reward":np.min(reward_losses)}, self.global_step)
             
             to_write = dict()
             for k, v in self.desire_dict.items():
@@ -175,12 +172,8 @@ class LightningTemplate(pl.LightningModule):
                 else:
                     to_write[k] = v
 
-            #self.logger.experiment.add_scalars('desires', to_write, self.global_step)
-            #self.logger.experiment.add_scalar("steps", self.train_buffer.total_num_steps_added, self.global_step)
-
-            self.log('desires', to_write)
-            self.log("steps", self.train_buffer.total_num_steps_added)
-
+            self.logger.experiment.add_scalars('desires', to_write, self.global_step)
+            self.logger.experiment.add_scalar("steps", self.train_buffer.total_num_steps_added, self.global_step)
 
         if self.hparams['desire_advantage']:  
             # reset the desired stats. Important for RCP use advantage. 
@@ -197,11 +190,10 @@ class LightningTemplate(pl.LightningModule):
         if self.current_epoch % self.hparams['eval_every']==0 and self.logger:
             output = self.collect_rollouts(greedy=True, num_episodes=self.hparams['eval_episodes'])
             reward_losses = output[0]
-            #self.logger.experiment.add_scalar("eval_mean", np.mean(reward_losses), self.global_step)
-            self.log('eval_mean', np.mean(reward_losses))
-        
+            self.logger.experiment.add_scalar("eval_mean", np.mean(reward_losses), self.global_step)
+            
 
-    def training_step(self, batch, batch_idx, validation=False):
+    def training_step(self, batch, batch_idx):
         # run training on this data
         obs, act = batch['obs'], batch['act']
         
@@ -216,20 +208,33 @@ class LightningTemplate(pl.LightningModule):
             if batch_idx%self.hparams['val_func_update_iterval']==0: 
 
                 if self.hparams['use_lambda_td']:
+                    """
+                    As the value function is updated, the values V(s) will 
+                    change and need to be recomputed on the fly. 
+                    Because of the current buffer implmentations where all events
+                    are added to vectors without any nested hierarchy, 
+                    random points from rollouts are chosen, the end of these 
+                    rollouts is found, and these chunks are all used for training.
+                    """
                     # randomly sample indices from the buffer
-                    # TODO: set the number of indices to sample from here. 
+                    num_rollouts_to_sample = 4 # will pick a random point in each of these. 
+                    # and train on every example from this point to the termination of this rollout.  
                     # NOTE: the number of values going into the NN will be changing. 
-                    idxs = np.random.randint(0, self.train_buffer.size, 4)
+                    idxs = np.random.randint(0, self.train_buffer.size, num_rollouts_to_sample)
 
                     obs_paths, td_lambda_paths = [], []
                     for idx in idxs: 
+                        # get path from this point to the end of the rollout. 
                         path_obs, path_rew = self.train_buffer.retrieve_path(idx)
+                        # compute current V(s) values with the up to date model. 
                         path_obs = self.advantage_model.forward(path_obs).squeeze()
                         # compute TD lambda for this path: 
                         if len(path_obs.shape)==0:
+                            # if rollout happens to be only the terminal state
                             path_obs = path_obs.unsqueeze(0)
                             td_lambda_target = path_rew
                         else: 
+                            # compute the target lambda values. 
                             td_lambda_target = self.advantage_model.calculate_lambda_target(path_obs.detach(), path_rew,
                                                                 self.hparams['discount_factor'], 
                                                                 self.hparams['td_lambda'])
@@ -239,10 +244,12 @@ class LightningTemplate(pl.LightningModule):
                     td_lambda_paths = torch.cat(td_lambda_paths, dim=0)
                     adv_loss = F.mse_loss(obs_paths, td_lambda_paths, reduction='none').mean(dim=0)
 
-                    # to use for the calcs below. 
+                    # to use for the calcs below but without any gradient information.
+                    # and with the random batch sampling used to train the backwards model.  
                     with torch.no_grad(): pred_vals = self.advantage_model.forward(obs).squeeze()
 
                 else: 
+                    # value function training without TD-lambda
                     pred_vals = self.advantage_model.forward(obs).squeeze()
                     adv_loss = F.mse_loss(pred_vals, batch['discounted_rew_to_go'], reduction='none').mean(dim=0)
             else: 
@@ -252,13 +259,18 @@ class LightningTemplate(pl.LightningModule):
             advantage = batch['discounted_rew_to_go'] - pred_vals.detach() # this is the advantage.
 
             # clamping it to prevent the desires and advantages 
-            # from being too high. 
+            # from being too high. This led to better results in some of my 
+            # experiments trying to replicate the RCP-A. 
             if self.hparams['clamp_adv_to_max']:
                 advantage = torch.clamp(advantage, max=self.hparams['max_adv_clamp_val'])
 
             desires.append( advantage.unsqueeze(1) )
 
-            # set the desired rewards here
+            # set the desired rewards here. Used for the agent in its rollouts. 
+            # this needs to be updated by the valurs encountered during training. 
+            # could take from the buffer but would need to recompute the advantage values
+            # for everything as these change every time the advantage model is updated.
+            # more efficient to use the ones already seen during training. 
             max_adv = float(advantage.max().numpy())
             if max_adv>= self.desired_advantage_dist[0]:
                 self.desired_advantage_dist = [ max_adv, float(advantage.std().numpy()) ]
@@ -271,8 +283,8 @@ class LightningTemplate(pl.LightningModule):
             act = act.squeeze().long()
 
         pred_loss = self._pred_loss(pred_action, act)
-        if self.hparams['use_exp_weight_losses']:
-            
+
+        if self.hparams['use_exp_weight_losses']: #used in RCP. 
             if self.hparams['desire_advantage']:
                 loss_weight_var = advantage
             else: 
@@ -282,19 +294,14 @@ class LightningTemplate(pl.LightningModule):
             loss_weighting = torch.clamp( torch.exp(loss_weight_var/self.hparams['beta_reward_weighting']), max=self.hparams['max_loss_weighting'])
             pred_loss = pred_loss*loss_weighting
         pred_loss = pred_loss.mean(dim=0)
-
-        if validation: 
-            suffix = '_val'
-        else: 
-            suffix = ''
-        self.log("policy_loss"+suffix, pred_loss)
+        logs = {"policy_loss": pred_loss}
 
         # learn the advantage function too by adding it to the loss if this is the correct iteration. 
         if self.hparams['desire_advantage'] and batch_idx%self.hparams['val_func_update_iterval']==0:
             pred_loss += adv_loss 
-            self.log("advantage_loss"+suffix, adv_loss)
+            logs["advantage_loss"] = adv_loss
 
-        return pred_loss
+        return {'loss':pred_loss, 'log':logs}
 
     def _pred_loss(self, pred_action, real_action):
         if self.hparams['continuous_actions']: 
@@ -304,15 +311,19 @@ class LightningTemplate(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         batch_idx=0 # so that advantage_val_loss is always called. 
-        val_res = self.training_step(batch, batch_idx, validation=True)
+        train_dict = self.training_step(batch, batch_idx)
+        train_dict['log']['policy_val_loss'] = train_dict['log'].pop('policy_loss')
+        if self.hparams['desire_advantage']:
+            train_dict['log']['advantage_val_loss'] = train_dict['log'].pop('advantage_loss')
+        return train_dict['log'] 
 
-    '''def validation_epoch_end(self, outputs):
+    def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x["policy_val_loss"] for x in outputs]).mean()
         tensorboard_logs = {"val_loss": avg_loss}
         return {
                 "avg_val_loss": avg_loss,
                 "log": tensorboard_logs
-                }'''
+                }
 
     def train_dataloader(self):
         bs = BatchSampler( RandomSampler(self.train_buffer, replacement=True, 

@@ -2,13 +2,21 @@
 
 This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) neither of which shared their implementations.
 
-This code base works for LunarLander in that the agent will learn to achieve a high score. However, performance is not as high as that documented in the original papers, this is especially the case for [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf). Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to such different performance.
+## State of the Code Base:
 
-There are a few other implementations of Upside Down Reinforcement Learning (UDRL) online already but these implementations either do not work or are very seed sensitive. This code base is not only more robust and performant across seeds but is also the first implementation of Reward Conditioned Policies.
+This code base works for LunarLander in that the agent will learn to achieve a high score. However, performance is not as high as that documented in the original papers, this is especially the case for [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) (RCP). Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to such different performance.
 
-All experiments can be run on your local computer between five and ten hours of runtime depending on settings. Parallel processing is implemented to be able to run multple seeds at the same time. Because of Pytorch Lightning and Ray Tune implmementation, scaling up to more CPUs and GPUs is easy. 
+I am hoping by open-sourcing this code base, the RL community will be able to improve upon it and collectively succeed in replicating these papers. Right now, if I had to guess, the problem is either a fundamental bug I have completely missed, or more likely some small but crucial implementation detail like a form of normalization or a certain hyperparameter setting eg the Beta value used in RCP.
+In [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) a list of hyperparameters tried is given but the best hyperparameters found never are!!! I used Ray Tune to search over all of the same hyperparameters but the results were too seed dependent to infer which were superior.
+In [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) none of the implementation details searched over or used are provided.
+
+## Other Implementations:
+
+There are a few other implementations of Upside Down Reinforcement Learning (UDRL) online already but these implementations either do not work or are very seed sensitive (see issues I have raised such as: [here](https://github.com/jscriptcoder/Upside-Down-Reinforcement-Learning/issues/1) and [here](https://github.com/BY571/Upside-Down-Reinforcement-Learning/issues/4#event-3624848392)). This code base is not only more robust and performant across seeds but is also the first implementation of Reward Conditioned Policies with both implmentations unified in a single code base (you can mix and match components of each).
 
 ## Relevant Scripts:
+
+All experiments can be run on your local computer using CPUs for between five and ten hours of runtime depending on settings. Parallel processing is implemented to be able to run multple seeds at the same time but only where each seed uses one CPU. However, because of Pytorch Lightning and the Ray Tune implmementation, scaling up to more CPUs and GPUs is easy.
 
 * `train.py` - has almost all of the relevant configuration settings for the code. Also starts either ray tune (for hyperparam optimization) or a single model (for debugging). Able to switch between different model and learning types in a modular fashion
 * `bash_train.sh` - uses GNU parallel to run multiple seeds of a model
@@ -17,7 +25,7 @@ All experiments can be run on your local computer between five and ten hours of 
 * `envs/gym_params.py` - provides environment specific parameters
 * `exp_dir/` - contains all experiments separated by: environment_name/experiment_name/seed/logged_versions
 * `models/upsd_model.py` - contains the [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) upside down models.
-* `models/advantage_model.py` - model to learn the advantage of actions as in the Levine paper
+* `models/advantage_model.py` - model to learn the advantage of actions, used for RCP-A.
 
 ## Dependencies:
 Tested with Python 3.7.5 (should work with Python 3.5 and higher).
@@ -40,10 +48,10 @@ To run a single model of the LunarLander with the UDRL implementation call:
 ```
 python trainer.py --implementation UDRL --gamename lunarlander \                                                  
 --exp_name debug \
---num_workers 1 --no_reload --seed 25
+--num_workers 1 --seed 25
 ```
 
-Implementations are `UDRL`, `RCP-R` and `RCP-A` (Reward Conditioned Policies with Rewards and Advantages, respectively). For RCP the default is with exponential weighting rewards rather than advantages.
+Implementations are `UDRL` (Upside Down RL), `RCP-R` and `RCP-A` (Reward Conditioned Policies with Rewards and Advantages, respectively). For RCP the default is with exponential weighting rewards rather than advantages.
 For RCP exponential weighting is turned on by before you can use the flag `--no_expo_weighting` to turn it off.
 
 Environments that are currently supported are `lunarlander` and `lunarlander-sparse`. Where the sparse version gives all of the rewards at the very end.
@@ -56,16 +64,16 @@ Checkpointing of model is turned on by default and will save a new version of th
 
 Multi-seed training. To test the model running multple seeds in parallel, modify the code in `bash_train.sh` which uses GNU parallel to run multiple seeds where each seed gets its own core to run on. The default is running seeds 25 to 29 inclusive. To run more seeds it is advised to use Ray Tune and line approx. 181 of `trainer.py` can be used to define the seeds to be tried. Ray Tune provides performance of each agent but currentlyl lacks as granular information during training.
 
-## Evaluating Training
+## Evaluating Training:
 
 All training results along with important metrics are saved out to Tensorboard. To view them call: 
 
-`tensorboard --logdir RewardConditionedUDRL/exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*`
+`tensorboard --logdir RewardConditionedUDRL/exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*IMPLEMENTATION-NAME*/`
 
 If you have run `python trainer.py` like in the above example (using seed 25 in the lunarlander environment and with debugging turned on) then the output can be seen by calling:
-`tensorboard --logdir RewardConditionedUDRL/exp_dir/lunarlander/debug/seed_25/logger/` and going to the URL generated. (Dont add the seed to the path if you are trying to view across seeds.)
+`tensorboard --logdir RewardConditionedUDRL/exp_dir/lunarlander/debug/UDRL/seed_25/logger/` and going to the URL generated. (Dont add the seed to the path if you are trying to view across seeds.)
 
-To visualize the performance of a trained model, locate the model's checkpoint which will be under: `exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt` and use the flag `--eval_agent exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt`.
+To visualize the performance of a trained model, locate the model's checkpoint which will be under: `exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt` and use the flag `--eval_agent exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*IMPLEMENTATION-NAME*/*SEED*/epoch=*VALUE*.ckpt`.
 
 ## Instructions for running on a Google Cloud VM:
 
@@ -86,12 +94,12 @@ To visualize the performance of a trained model, locate the model's checkpoint w
 
 The next two subheaders are if you want to be able to SSH into the server from your IDE (instructions provided for VS Code) (I recommend this!). But if you want to use the SSH button via Google Cloud thats fine too.
 
-#### Connect Static IP 
+#### Connect Static IP:
 In the top search bar look up "External IP" select it. Create a new static IP address. Attach it to your new VM.
 
 (You may need to turn off and back on your VM for this to take effect.)
 
-#### IDE SSH
+#### IDE SSH:
 For VSCode I use the installed plugin "Remote Explorer". 
 My ssh keys are in ~/.ssh so I do `cat ~/.ssh/id_rsa.pub` and copy and paste this into the SSH section of Google Cloud (Search for SSH). 
 
@@ -100,20 +108,22 @@ Then with my server on I get its external IP address and in VSCode remote explor
 Before following the instructions.
 One thing that first caught me up is that you need to give the ssh prefix not the the specific .pub file!
 
-## TODOs
+## TODOs:
 
-Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)
+* Implement video recording of the model during training. 
+* Make buffers more efficient by storing whole rollout together and computing relevant statistics on the fly. 
+* Checkpoint model based upon eval_reward rather than the policy loss (need to update the Pytorch Lightning loggers for this to work).
+* Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)
 
-Implement video recording of the model during training. 
 
-## Acknowledgements
+## Acknowledgements:
 
 Thanks to the open source implementation of Upside Down Reinforcement Learning: <https://github.com/jscriptcoder/Upside-Down-Reinforcement-Learning> which provided an initial test base. Also to [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) for initial research and results (I just wish both of these papers shared their code...).
 
-## Authors
+## Authors:
 
-* **Trenton Bricken** - [trentbrick](https://github.com/trentbrick)
+* **Trenton Bricken** - [trentbrick](https://trentbrick.github.io/)
 
-## License
+## License:
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details

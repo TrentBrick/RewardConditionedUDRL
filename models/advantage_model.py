@@ -34,10 +34,9 @@ class AdvantageModel(nn.Module):
         # compute the advantages to use as desires during training. 
         # I then do MSE loss between the these advantages and the value function
         #vals = self.forward(states).squeeze()
-        # need to clamp to 700 so log sum exp doesnt explode!
-        #adv = np.minimum(adv, 50)
         # appending zero to the end. 
         # TODO: if terminal set to 0, otherwise use the value that was given. 
+        # I always run rollouts till they terminate currently so this is not a problem. 
         
         vals = torch.cat( [vals, torch.Tensor([0])], axis=0)
         td_lambda_target = self._compute_return(vals, rewards, discount, td_lambda)

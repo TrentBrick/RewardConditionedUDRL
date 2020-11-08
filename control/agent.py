@@ -284,8 +284,6 @@ class Agent:
             # This is crucial. 
             obs = next_obs
 
-        #print('time at end of rollout!!!', time)
-        #print('done with this simulation')
         if render: 
             print('the last state for agent is:', rollout_dict['obs'][-1].round(3)  )
 
@@ -311,10 +309,6 @@ class Agent:
             rollout_dict['rollout_length'] = np.repeat(time, time)
             rollout_dict['horizon'] = time - np.arange(0, time) 
             rollout_dict['final_obs'] = np.repeat(np.expand_dims(rollout_dict['obs'][-1],0), time, axis=0)
-            #print('rollout final obs is:', rollout_dict['final_obs'].shape )
-            # so that the horizon is always 1 away
-            #print(rollout_dict['final_obs'], rollout_dict['horizon'], rollout_dict['cum_rew'])
-            #print('lenghts of things being added:', time, len(rollout_dict['cum_rew']), len(rollout_dict['horizon']), len(rollout_dict['discounted_rew_to_go']), len(rollout_dict['terminal']) )
             # discounted cumulative!
             return cumulative, to_desire, time, rollout_dict # passed back to simulate. 
         else: 

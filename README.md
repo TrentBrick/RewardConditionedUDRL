@@ -1,10 +1,58 @@
 # Reward Conditioned Policies / Upside Down Reinforcement Learning
 
-This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) neither of which shared their implementations.
+This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) (UDRL) neither of which shared their implementations.
 
 ## State of the Code Base:
 
+![gif](readme_files/mycode/lunar_demo.gif)
+
+Example rollout of agent trained using UDRL for 540 epochs (54000 gradient update steps).
+
+![eval_mean](readme_files/mycode/lunar_demo_evalmean.png)
+
 This code base works for LunarLander in that the agent will learn to achieve a high score. However, performance is not as high as that documented in the original papers, this is especially the case for [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) (RCP). Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to such different performance.
+
+UDRL in LunarLander environment in this codebase:
+
+![UDRL](readme_files/mycode/UDRL_evalmean.png)
+
+X-axis is number of gradient updates (100 per epoch). 20 rollouts per epoch. If each rollout is approx 300 environment steps then multiply this X-axis by a factor of (20*300)/100 = 60 to get environment steps.
+
+NB. Because of different rollout lengths for each seed, some of them did not finish their training steps but I killed the job a bit early to generate all of these comparisons.
+
+Figure from paper:
+
+![UDRL-paper](readme_files/papercode/UDRL.png)
+Average of 20 random seeds (5 in my case.) This is the only case where my code seems to reproduce the figure. For example, the 100K X-axis point in my code corresponds to approx. 0.6x10^7 environment steps. And the average looks to be a bit higher than 100.
+
+UDRL in Sparse-LunarLander:
+
+NEED TO UPDATE THIS FIGURE. IT IS CURRENTLY THE SAME AS NON SPARSE. 
+![UDRL-sparse](readme_files/mycode/UDRL-sparse_evalmean.png)
+
+Figure from paper:
+
+![UDRL-paper](readme_files/papercode/UDRL-sparse.png)
+
+RCP-R with exponential weighting:
+
+![RCP-R](readme_files/mycode/RCP-R_evalmean.png)
+
+Figure from paper:
+
+![RCP-R-paper](readme_files/papercode/RCP.png)
+
+Average of 5 seeds. The X-axes are comparable here. Performance seems to match that of RCP-R and if anything looks somewhat more stable.
+
+RCP-A with exponential weighting:
+
+![RCP-A](readme_files/mycode/RCP-A_evalmean.png)
+
+Figure from paper:
+
+![RCP-R-paper](readme_files/papercode/RCP.png)
+
+Average of 5 seeds. The X-axes are comparable here. Performance either seems to match that of the figure RCP-A (seeds 27 and 28) or does much worse.
 
 I am hoping by open-sourcing this code base, the RL community will be able to improve upon it and collectively succeed in replicating these papers. Right now, if I had to guess, the problem is either a fundamental bug I have completely missed, or more likely some small but crucial implementation detail like a form of normalization or a certain hyperparameter setting eg the Beta value used in RCP.
 In [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) a list of hyperparameters tried is given but the best hyperparameters found never are!!! I used Ray Tune to search over all of the same hyperparameters but the results were too seed dependent to infer which were superior.
@@ -16,7 +64,7 @@ There are a few other implementations of Upside Down Reinforcement Learning (UDR
 
 ## Relevant Scripts:
 
-All experiments can be run on your local computer using CPUs for between five and ten hours of runtime depending on settings. Parallel processing is implemented to be able to run multple seeds at the same time but only where each seed uses one CPU. However, because of Pytorch Lightning and the Ray Tune implmementation, scaling up to more CPUs and GPUs is easy.
+All experiments can be run on your local computer using CPUs for between five and fifteen hours of runtime depending on settings. Parallel processing is implemented to be able to run multple seeds at the same time but only where each seed uses one CPU. However, because of Pytorch Lightning and the Ray Tune implmementation, scaling up to more CPUs and GPUs is easy.
 
 * `train.py` - has almost all of the relevant configuration settings for the code. Also starts either ray tune (for hyperparam optimization) or a single model (for debugging). Able to switch between different model and learning types in a modular fashion
 * `bash_train.sh` - uses GNU parallel to run multiple seeds of a model
@@ -64,6 +112,10 @@ Checkpointing of model is turned on by default and will save a new version of th
 
 Multi-seed training. To test the model running multple seeds in parallel, modify the code in `bash_train.sh` which uses GNU parallel to run multiple seeds where each seed gets its own core to run on. The default is running seeds 25 to 29 inclusive. To run more seeds it is advised to use Ray Tune and line approx. 181 of `trainer.py` can be used to define the seeds to be tried. Ray Tune provides performance of each agent but currentlyl lacks as granular information during training.
 
+In order to record episodes from epochs, used the flag `--recording_epoch_interval`. Each epoch of this interval, `record_n_rollouts_per_epoch` (in config dict, default =1) will be saved out. However, to do this either you need to run a single seed on your local computer or have xvfb installed on your server (see below for in depth instructions on how to re-install GPU drivers that incorporate xvfb). The alternative is to ensure model checkpointing is turned on and render your saved models after training using the `--eval_agent` flag and providing it with the path to the trained model.
+
+Model checkpointing is on by default and will save the model with the best performance on achieving mean rollout reward. 
+
 ## Evaluating Training:
 
 All training results along with important metrics are saved out to Tensorboard. To view them call: 
@@ -74,6 +126,12 @@ If you have run `python trainer.py` like in the above example (using seed 25 in 
 `tensorboard --logdir RewardConditionedUDRL/exp_dir/lunarlander/debug/UDRL/seed_25/logger/` and going to the URL generated. (Dont add the seed to the path if you are trying to view across seeds.)
 
 To visualize the performance of a trained model, locate the model's checkpoint which will be under: `exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt` and use the flag `--eval_agent exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*IMPLEMENTATION-NAME*/*SEED*/epoch=*VALUE*.ckpt`.
+
+## TODOs:
+Nice to haves that either I (or you, reader!) will implement.
+
+* Make buffers more efficient by storing whole rollout together and computing relevant statistics on the fly.
+* Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)
 
 ## Instructions for running on a Google Cloud VM:
 
@@ -108,13 +166,56 @@ Then with my server on I get its external IP address and in VSCode remote explor
 Before following the instructions.
 One thing that first caught me up is that you need to give the ssh prefix not the the specific .pub file!
 
-## TODOs:
+#### Installing Dependencies 
+With access to your server sorted, you now need to install a few dependencies:
 
-* Implement video recording of the model during training. 
-* Make buffers more efficient by storing whole rollout together and computing relevant statistics on the fly. 
-* Checkpoint model based upon eval_reward rather than the policy loss (need to update the Pytorch Lightning loggers for this to work).
-* Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)
+Note - this VM comes with Conda preinstalled along with Python 2.7 and 3.5 outside of Conda. We will not be using Conda so either uninstall it or every time you log on ensure you deactivate it first! (If you can get this all working with Conda then good for you but I had problems with it early on in this project and so decided to ignore it.)
 
+Note2 - The CUDA drivers are installed with open-gl which we do not want in order to be able to run the CarRacing Gym environment headlessly on the server. As a result we need to reinstall these drivers using the `--no-opengl-files` flag.
+
+If you are running this on a server and your GPU expects OpenGL, then run all of the below. I run it in chunks because the CUDA installers have interactive pages.
+```
+conda init
+exit
+### reopen terminal. Conda was there but couldn't be deactivated till you do this!
+conda deactivate
+## deleta conda (if you want, else will need to call conda deactivate) every time
+sudo rm -rf ../../opt/conda/
+git clone https://github.com/TrentBrick/fem.git
+sudo apt-get update
+
+pip3 install --upgrade pip
+pip3 install torch==1.5.0+cu101 torchvision==0.6.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
+pip3 install -r fem/requirements.txt
+sudo apt-get update -y
+sudo apt-get install -y xvfb
+
+###Setting up the GPU:::
+
+mkdir ~/Downloads/
+mkdir ~/Downloads/nvidia
+cd ~/Downloads/nvidia
+wget https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_10.1.105_418.39_linux.run
+wget http://us.download.nvidia.com/tesla/418.126.02/NVIDIA-Linux-x86_64-418.126.02.run
+sudo chmod +x NVIDIA-Linux-x86_64-418.126.02.run
+sudo chmod +x cuda_10.1.105_418.39_linux.run
+./cuda_10.1.105_418.39_linux.run -extract=~/Downloads/nvidia/
+
+### Uninstall old stuff. Choose default options. You may get some warning messages. Which is fine. 
+sudo apt-get --purge remove nvidia-*
+sudo nvidia-uninstall
+
+sudo ./NVIDIA-Linux-x86_64-418.126.02.run --no-opengl-files
+sudo ./cuda_10.1.105_418.39_linux.run --no-opengl-libs
+### Verify installation
+nvidia-smi
+
+# install opengl.
+sudo apt-get install python-opengl
+```
+
+Your server should now be fully set up to run all of the following experiments! Please don't post Issues on GPU installation as I won't be able to provide any further support and have already provided a lot more than most other ML code reproductions/support!
+NB. If you are not using Conda be sure either uninstall it or to call `conda deactivate` every time you SSH in and whenever you start a new tmux terminal.
 
 ## Acknowledgements:
 

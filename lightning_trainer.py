@@ -7,11 +7,11 @@ import pytorch_lightning as pl
 from control import Agent
 import numpy as np
 from torch.utils.data import DataLoader, RandomSampler, BatchSampler
-from utils import ReplayBuffer, \
-    RingBuffer, combine_single_worker
+from utils import RingBuffer, combine_single_worker
 from pytorch_lightning import seed_everything
 import random 
-
+from os.path import join, exists
+from os import mkdir
 class LightningTemplate(pl.LightningModule):
 
     def __init__(self, game_dir, hparams, train_buffer, test_buffer):
@@ -68,15 +68,20 @@ class LightningTemplate(pl.LightningModule):
             self.logger.experiment.add_hparams(hparams)
 
         # start filling up the buffer.
-        output = self.collect_rollouts(num_episodes=self.hparams['num_rand_action_rollouts']) 
-        self.add_rollouts_to_buffer(output)
+        if self.hparams['eval_agent'] is None: 
+            output = self.collect_rollouts(num_episodes=self.hparams['num_rand_action_rollouts']) 
+            self.add_rollouts_to_buffer(output)
     
     def eval_agent(self):
-        self.desire_dict['horizon'] = 285
-        self.desire_dict['reward_dist'] = (319, 1)
+        self.desire_dict = dict(
+            horizon = 700,
+            reward_dist = (300,1),
+            advantage_dist = (160,10)
+        )
         if self.hparams['print_statements']:
             print('Desired Horizon and Rewards are:', self.desire_dict['horizon'], self.desire_dict['reward_dist'])
-        self.current_epoch = self.hparams['random_action_epochs']+1
+        self.hparams['random_action_epochs'] = 0
+        #self.current_epoch = self.hparams['random_action_epochs']+1
         output = self.collect_rollouts(num_episodes=100, greedy=True, render=True  ) 
 
     def forward(self,state, command):
@@ -98,18 +103,29 @@ class LightningTemplate(pl.LightningModule):
                 advantage_model=self.advantage_model
                 )
         else:
+
             agent = Agent(self.hparams['gamename'], 
                 model = self.model, 
                 hparams= self.hparams,
                 desire_dict = self.desire_dict, 
-                advantage_model=self.advantage_model)
+                advantage_model=self.advantage_model
+                )
         
         seed = np.random.randint(0, 1e9, 1)[0]
         if self.hparams['print_statements']:
             print('seed used for agent simulate:', seed )
+
+        if self.hparams['recording_epoch_interval']>0 and self.current_epoch%self.hparams['recording_epoch_interval'] ==0: 
+            rp = join(self.hparams['rec_dir'], 'epoch_'+str(self.current_epoch))
+            if not exists(rp):
+                mkdir(rp)
+        else: 
+            rp = None
+
         output = agent.simulate(seed, return_events=True,
                                 num_episodes=num_episodes,
-                                greedy=greedy, render_mode=render)
+                                greedy=greedy, render_mode=render,
+                                record_path=rp)
 
         return output
 
@@ -132,7 +148,7 @@ class LightningTemplate(pl.LightningModule):
         self.desire_dict = dict() 
 
         if not self.hparams['use_RCP_buffer']:
-            last_few_mean_returns, last_few_std_returns, desired_horizon, desired_state = self.train_buffer.get_desires(last_few=self.hparams['last_few'])
+            last_few_mean_returns, last_few_std_returns, desired_horizon = self.train_buffer.get_desires(last_few=self.hparams['last_few'])
         
         if self.hparams['desire_discounted_rew_to_go'] or self.hparams['desire_cum_rew']:
             # cumulative and reward to go start the same/sampled the same. then RTG is 

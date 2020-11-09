@@ -23,13 +23,12 @@ class SortedBuffer:
         self.cum_rew= None
         self.horizon= None
         self.rollout_length = None
-        self.final_obs = None
         self.buffer_dict = dict(obs=self.obs_buf, obs2=self.obs2_buf, 
                                 act=self.act_buf, 
                                 discounted_rew_to_go=self.discounted_rew_to_go_buf,
                                 cum_rew=self.cum_rew, horizon=self.horizon, 
-                                rollout_length=self.rollout_length, 
-                                final_obs=self.final_obs)
+                                rollout_length=self.rollout_length
+                                )
         
         self.use_td_lambda_buf = use_td_lambda_buf
         if self.use_td_lambda_buf:
@@ -116,11 +115,9 @@ class SortedBuffer:
 
         # from these returns calc the mean and std
         mean_returns = np.mean(unique_cum_rews)
-        std_returns = np.std(unique_cum_rews)
+        std_returns = np.std(unique_cum_rews) 
 
-        new_desired_state = self.buffer_dict['final_obs'][unique_cum_inds].mean(axis=0) 
-
-        return mean_returns, std_returns, new_desired_horizon, new_desired_state
+        return mean_returns, std_returns, new_desired_horizon
 
     def __getitem__(self, idx):
         # turn this into a random value!
@@ -150,9 +147,7 @@ class RingBuffer:
             self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
         self.discounted_rew_to_go_buf = np.zeros(size, dtype=np.float32)
         self.cum_rew = np.zeros(size, dtype=np.float32)
-        self.final_obs = np.zeros(combined_shape(size, obs_dim), dtype=np.float32)
         self.horizon_buf = np.zeros(size, dtype=np.float32)
-        #self.terminal_buf = np.zeros(size, dtype=np.int8)
 
         self.buf_list = [self.obs_buf, 
                         self.obs2_buf, 
@@ -160,7 +155,6 @@ class RingBuffer:
                         self.act_buf, 
                         self.cum_rew, 
                         self.horizon_buf,
-                        self.final_obs
                         ]
 
         self.value_names = ['obs', 
@@ -169,7 +163,6 @@ class RingBuffer:
                             'act', 
                             'cum_rew', 
                             'horizon',
-                            'final_obs'
                             ]
 
         self.use_td_lambda_buf = use_td_lambda_buf
@@ -237,7 +230,6 @@ class RingBuffer:
                      discounted_rew_to_go=self.discounted_rew_to_go_buf[idxs],
                      horizon=self.horizon_buf[idxs],
                      cum_rew=self.cum_rew[idxs],
-                     final_obs=self.final_obs[idxs]
                      )
         if self.use_td_lambda_buf:
             batch['start_index'] = idxs

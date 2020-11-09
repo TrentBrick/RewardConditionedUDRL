@@ -20,8 +20,7 @@ import sys
 from lightning_trainer import LightningTemplate
 from multiprocessing import cpu_count
 from collections import OrderedDict
-from utils import ReplayBuffer, \
-    RingBuffer, SortedBuffer
+from utils import RingBuffer, SortedBuffer
 import time 
 import random 
 from pytorch_lightning import Trainer
@@ -45,6 +44,9 @@ def main(args):
     env_params = get_env_params(args.gamename)
 
     assert args.num_workers <= cpu_count(), "Providing too many workers!"
+
+    if args.eval_agent is not None:
+        recording_epoch_interval=-1
 
     # Constants
     epochs = 2000  
@@ -103,6 +105,7 @@ def main(args):
     config = dict(
         random_action_epochs = 1, # needs to be at least 1 to initalize the data buffer
         val_func_update_iterval = 5, # for every ... updates of the policy, update the value function
+        record_n_rollouts_per_epoch=1,
         grad_clip_val = 100, 
         eval_every = 10, # evaluate (run with argmax on actions rather than sampling/noise (discrete/continous action space respectively)) every ... epochs.
         eval_episodes=10, # how many environment rollouts to run for each evaluation
@@ -185,10 +188,17 @@ def main(args):
         exp_dir = join(base_game_dir, args.exp_name)
         imp_dir = join(exp_dir, args.implementation)
         game_dir = join(imp_dir, 'seed_'+str(args.seed))
+        config['game_dir'] = game_dir
         filenames_dict = { bc:join(game_dir, 'model_'+bc+'.tar') for bc in ['best', 'checkpoint'] }
         for dirr in [base_game_dir, exp_dir, imp_dir, game_dir]:
             if not exists(dirr):
                 mkdir(dirr)
+
+        if config['recording_epoch_interval']>0: # ie want recordings: 
+            rec_dir = join(game_dir, 'recordings')
+            config['rec_dir'] = rec_dir
+            if not exists(rec_dir):
+                mkdir(rec_dir)
 
         logger = TensorBoardLogger(game_dir, "logger")
 
@@ -231,19 +241,27 @@ def main(args):
 
         if args.reload or args.eval_agent:
             # load in trained model: 
-
             # get name from either eval or reload:
             if args.reload:
                 load_name = args.reload 
             else:
                 load_name = args.eval_agent
-            print('loading in from:', load_name)
             state_dict = torch.load(load_name)['state_dict']
-            state_dict = {k[6:]:v for k, v in state_dict.items()}
-            model.model.load_state_dict(state_dict)
+            if args.implementation=='RCP-A':
+                # need to handle the advantage model also existing here. 
+                # [len('model.'):] strips the type of model from the front of the name. 
+                model_state_dict = {k[len('model.'):]:v for k, v in state_dict.items() if 'model' in k[:len('model.')]}
+                adv_state_dict = {k[len('advantage_model.'):]:v for k, v in state_dict.items() if 'advantage_model.' in k}
+                model.advantage_model.load_state_dict(adv_state_dict)
+            else: 
+                # strips the name 'model' from the front of the strings. 
+                model_state_dict = {k[len('model.'):]:v for k, v in state_dict.items()}
+            model.model.load_state_dict(model_state_dict)
             print("Loaded in Model!")
 
         if args.eval_agent:
+            print('Ensure the desires for your agent (approx line 76 of lightning_trainer.py) \
+                correspond to those your agent learned.')
             # calls part of lightning. 
             model.eval_agent()
 
@@ -297,18 +315,22 @@ if __name__ =='__main__':
     parser.add_argument('--no_checkpoint', action='store_true',
                         help="Use this flag if don't want to save model checkpoints.")
     
+    parser.add_argument('--logdir', type=str, default='exp_dir',
+                        help="Where things are logged and models are loaded from.")
     parser.add_argument('--gamename', type=str, default='lunarlander',
                         help="What Gym environment to train in.")
     parser.add_argument('--exp_name', type=str, default='debug',
                         help="Name of the experiment.")                
-    parser.add_argument('--logdir', type=str, default='exp_dir',
-                        help="Where things are logged and models are loaded from.")
     
+    parser.add_argument('--recording_epoch_interval', type=int, default=10,
+                        help="How often a recording of the epoch will be made. Make -1 if don't want recordings to be made. ")
+
     parser.add_argument('--reload', type=str, default=None,
                         help="Provide path for model to be reloaded in to continue training. \
                         NB This will start again from epoch 1 and overwrite \
                         the best and checkpoints during training! \
                         Put in path for agent to be evaluated including the .ckpt")
+    
     parser.add_argument('--eval_agent', type=str, default=None,
                         help="Able to eval the agent! Put in path for the model to be evaluated including the .ckpt ")
     

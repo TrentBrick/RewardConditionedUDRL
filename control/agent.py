@@ -14,6 +14,8 @@ from torch.distributions import Normal, Categorical
 from models import UpsdModel, UpsdBehavior
 from envs import get_env_params
 import random 
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
+
 
 class WeightedNormal:
     def __init__(self, mu, sigma, beta=1):
@@ -107,7 +109,7 @@ class Agent:
         return actions
 
     def rollout(self, render=False, display_monitor=None,
-            greedy=False):
+            greedy=False, recorder = None):
         """ Executes a rollout and returns cumulative reward along with
         the time point the rollout stopped and 
         optionally, all observations/actions/rewards/terminal outputted 
@@ -164,6 +166,9 @@ class Agent:
             rollout_dict = {k:[] for k in ['obs', 'obs2', 'rew', 'act', 'terminal']}
         
         while not hit_done:
+
+            if recorder is not None:
+                recorder.capture_frame()
 
             # NOTE: maybe make this unique to carracing here? 
             if self.obs_trim is not None:
@@ -280,15 +285,18 @@ class Agent:
                     if key=='obs':
                         var = var.squeeze().detach().numpy()
                     rollout_dict[key].append(var)
-
+                
             # This is crucial. 
             obs = next_obs
+
+        if recorder is not None:
+            recorder.close()
+            #del recorder
 
         if render: 
             print('the last state for agent is:', rollout_dict['obs'][-1].round(3)  )
 
         if self.return_events:
-
             list_of_keys = list(rollout_dict.keys())
             for k in list_of_keys: # list of tensors arrays.
                 # rewards to go here for RCP
@@ -315,7 +323,8 @@ class Agent:
             return cumulative, time # ending time and cum reward
                 
     def simulate(self, seed, return_events=False, num_episodes=16, 
-        render_mode=False, antithetic=False, greedy=False):
+        render_mode=False, antithetic=False, greedy=False,
+        record_path = None):
         """ Runs lots of rollouts with different random seeds. Optionally,
         can keep track of all outputs from the environment in each rollout 
         (adding each to a list which contains dictionaries for the rollout). 
@@ -332,10 +341,6 @@ class Agent:
             from the whole rollout. 
         """
 
-        # have these here in case I wanted to use them. 
-        # Render also currently doesnt do anything. 
-        recording_mode = False
-
         self.return_events = return_events
 
         random.seed(seed)
@@ -351,6 +356,12 @@ class Agent:
 
         with torch.no_grad():
             for i in range(num_episodes):
+                if record_path and i < self.hparams['record_n_rollouts_per_epoch']:
+                    # record the first n rollouts of this epoch. 
+                    recorder = VideoRecorder(self.env, path=record_path+'/rollout_'+str(i)+'.mp4')
+                else: 
+                    recorder=None
+
                 # for every second rollout. reset the rand seed if using antithetic. 
                 if antithetic and i%2==1:
                     # uses the previous rand_seed
@@ -361,12 +372,12 @@ class Agent:
                     self.env.seed(int(rand_env_seed))
 
                 if self.return_events: 
-                    rew, to_desire, time, data_dict = self.rollout(render=render_mode, greedy=greedy)
+                    rew, to_desire, time, data_dict = self.rollout(render=render_mode, greedy=greedy, recorder=recorder)
                     # data dict has the keys 'obs', 'rewards', 'actions', 'terminal'
                     data_dict_list.append(data_dict)
                     to_desire_list.append(to_desire)
                 else: 
-                    rew, time = self.rollout(render=render_mode, greedy=greedy)
+                    rew, time = self.rollout(render=render_mode, greedy=greedy,recorder=recorder)
                 if render_mode: 
                     print('Cumulative Reward is:', rew, 'Termination time is:', time)
                     #print('Last Desired reward is:',curr_des "Last Desired Horizon is:", )

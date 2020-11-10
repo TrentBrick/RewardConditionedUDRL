@@ -1,6 +1,6 @@
 # Reward Conditioned Policies / Upside Down Reinforcement Learning
 
-This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) (UDRL) neither of which shared their implementations.
+This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) (RCP) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) (UDRL) neither of which shared their implementations.
 
 ## State of the Code Base:
 
@@ -10,7 +10,7 @@ Example rollout of agent trained using UDRL for 540 epochs (54000 gradient updat
 
 ![eval_mean](readme_files/mycode/lunar_demo_evalmean.png)
 
-This code base works for LunarLander in that the agent will learn to achieve a high score. However, performance is not as high as that documented in the original papers, this is especially the case for [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) (RCP). Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to such different performance.
+This code base works for LunarLander in that the agent will learn to achieve a high score. However, results appear to have a much higher variance across seeds here than in the original papers, especially for UDRL Sparse Lunar-Lander and RCP-Advantages. Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to these differences in performance outlined below: 
 
 UDRL in LunarLander environment in this codebase:
 
@@ -40,7 +40,7 @@ RCP-R with exponential weighting:
 
 Figure from paper:
 
-![RCP-R-paper](readme_files/papercode/RCP.png)
+![RCP-R-paper](readme_files/papercode/RCPs.png)
 
 Average of 5 seeds. The X-axes are comparable here. Performance seems to match that of RCP-R and if anything looks somewhat more stable.
 
@@ -50,7 +50,7 @@ RCP-A with exponential weighting:
 
 Figure from paper:
 
-![RCP-R-paper](readme_files/papercode/RCP.png)
+![RCP-R-paper](readme_files/papercode/RCPs.png)
 
 Average of 5 seeds. The X-axes are comparable here. Performance either seems to match that of the figure RCP-A (seeds 27 and 28) or does much worse.
 
@@ -130,6 +130,7 @@ To visualize the performance of a trained model, locate the model's checkpoint w
 ## TODOs:
 Nice to haves that either I (or you, reader!) will implement.
 
+* Implement the TakeCover-v0 environment. 
 * Make buffers more efficient by storing whole rollout together and computing relevant statistics on the fly.
 * Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)
 

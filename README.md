@@ -2,7 +2,7 @@
 
 This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) (RCP) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) (UDRL) neither of which shared their implementations.
 
-## State of the Code Base:
+## State of the Codebase:
 
 ![gif](readme_files/mycode/lunar_demo.gif)
 
@@ -11,6 +11,8 @@ Example rollout of agent trained using UDRL for 540 epochs (54000 gradient updat
 ![eval_mean](readme_files/mycode/lunar_demo_evalmean.png)
 
 This code base works for LunarLander in that the agent will learn to achieve a high score. However, results appear to have a much higher variance across seeds here than in the original papers, especially for UDRL Sparse Lunar-Lander and RCP-Advantages. Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to these differences in performance outlined below: 
+
+### Performance Comparisons:
 
 UDRL in LunarLander environment in this codebase:
 
@@ -27,8 +29,8 @@ Average of 20 random seeds (5 in my case.) This is the only case where my code s
 
 UDRL in Sparse-LunarLander:
 
-NEED TO UPDATE THIS FIGURE. IT IS CURRENTLY THE SAME AS NON SPARSE. 
 ![UDRL-sparse](readme_files/mycode/UDRL-sparse_evalmean.png)
+(one of the seeds died at the start of training.)
 
 Figure from paper:
 
@@ -54,13 +56,13 @@ Figure from paper:
 
 Average of 5 seeds. The X-axes are comparable here. Performance either seems to match that of the figure RCP-A (seeds 27 and 28) or does much worse.
 
-I am hoping by open-sourcing this code base, the RL community will be able to improve upon it and collectively succeed in replicating these papers. Right now, if I had to guess, the problem is either a fundamental bug I have completely missed, or more likely some small but crucial implementation detail like a form of normalization or a certain hyperparameter setting eg the Beta value used in RCP.
-In [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) a list of hyperparameters tried is given but the best hyperparameters found never are!!! I used Ray Tune to search over all of the same hyperparameters but the results were too seed dependent to infer which were superior.
+I am hoping by open-sourcing this codebase, the RL community will be able to improve upon it and collectively succeed in replicating these papers. Right now, if I had to guess, the problem is either a fundamental bug I have completely missed, or more likely some small but crucial implementation detail like a form of normalization or a certain hyperparameter setting eg the Beta value used in RCP.
+In [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) a list of hyperparameters tried is given but the best hyperparameters found never are!!! I used Ray Tune to search over all of the same hyperparameters but the results were too seed dependent to infer which hyperparameters were superior.
 In [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) none of the implementation details searched over or used are provided.
 
 ## Other Implementations:
 
-There are a few other implementations of Upside Down Reinforcement Learning (UDRL) online already but these implementations either do not work or are very seed sensitive (see issues I have raised such as: [here](https://github.com/jscriptcoder/Upside-Down-Reinforcement-Learning/issues/1) and [here](https://github.com/BY571/Upside-Down-Reinforcement-Learning/issues/4#event-3624848392)). This code base is not only more robust and performant across seeds but is also the first implementation of Reward Conditioned Policies with both implmentations unified in a single code base (you can mix and match components of each).
+There are a few other implementations of Upside Down Reinforcement Learning (UDRL) online already but these implementations either do not work or are very seed sensitive (see issues I have raised such as: [here](https://github.com/jscriptcoder/Upside-Down-Reinforcement-Learning/issues/1) and [here](https://github.com/BY571/Upside-Down-Reinforcement-Learning/issues/4#event-3624848392)). This code base is not only more robust and capable of running multiple seeds in parallel for UDRL but is also the first implementation of Reward Conditioned Policies with both implmentations unified in a single code base (you can also easily mix and match components of each).
 
 ## Relevant Scripts:
 
@@ -71,7 +73,7 @@ All experiments can be run on your local computer using CPUs for between five an
 * `lighting-trainer.py` - meat of the code. Uses pytorch lightning for training
 * `control/agent.py` - runs rollouts of the environment and processes their rewards
 * `envs/gym_params.py` - provides environment specific parameters
-* `exp_dir/` - contains all experiments separated by: environment_name/experiment_name/seed/logged_versions
+* `exp_dir/` - contains all experiments separated by: environment_name/experiment_name/algorithm-implementation/seed/logged_versions
 * `models/upsd_model.py` - contains the [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) upside down models.
 * `models/advantage_model.py` - model to learn the advantage of actions, used for RCP-A.
 
@@ -100,15 +102,15 @@ python trainer.py --implementation UDRL --gamename lunarlander \
 ```
 
 Implementations are `UDRL` (Upside Down RL), `RCP-R` and `RCP-A` (Reward Conditioned Policies with Rewards and Advantages, respectively). For RCP the default is with exponential weighting rewards rather than advantages.
-For RCP exponential weighting is turned on by before you can use the flag `--no_expo_weighting` to turn it off.
+For RCP exponential weighting is turned on by before you can use the flag `--no_expo_weighting` to turn it off. The Beta weighting value is inside `trainer.py`.
 
 Environments that are currently supported are `lunarlander` and `lunarlander-sparse`. Where the sparse version gives all of the rewards at the very end.
 
-To run multiple seeds call `bash bash_train.sh` changing the trainer.py settings and experiment name as is desired.
+To run multiple seeds call `bash bash_train.sh` changing the `trainer.py` settings and experiment name as is desired.
 
 To run Ray hyperparameter tuning, uncomment all of the `ray.tune()` functions for desired hyperparamters to search over and use the flag `--use_tune`.
 
-Checkpointing of model is turned on by default and will save a new version of the model whenever ... (this is defined at approx line 194 for trainer.py). To turn off model checkpointing add the flag `--no_checkpoint`
+Checkpointing of model is turned on by default and will save a new version of the model whenever the policy loss declines (this is defined at approx line 194 for trainer.py). To turn off model checkpointing add the flag `--no_checkpoint`. 
 
 Multi-seed training. To test the model running multple seeds in parallel, modify the code in `bash_train.sh` which uses GNU parallel to run multiple seeds where each seed gets its own core to run on. The default is running seeds 25 to 29 inclusive. To run more seeds it is advised to use Ray Tune and line approx. 181 of `trainer.py` can be used to define the seeds to be tried. Ray Tune provides performance of each agent but currentlyl lacks as granular information during training.
 
@@ -130,11 +132,13 @@ To visualize the performance of a trained model, locate the model's checkpoint w
 ## TODOs:
 Nice to haves that either I (or you, reader!) will implement.
 
+* Update the PyTorch Lightning loggers and track `eval_mean` instead of the policy loss. <https://github.com/PyTorchLightning/pytorch-lightning/issues/4584#issuecomment-724185789> 
 * Implement the TakeCover-v0 environment. 
 * Make buffers more efficient by storing whole rollout together and computing relevant statistics on the fly.
 * Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)
 
 ## Instructions for running on a Google Cloud VM:
+(in case you don't want to run on your local computer or want GPU training.)
 
 #### Set up the VM: 
 * Create a Google Cloud account

@@ -10,7 +10,7 @@ Example rollout of agent trained using UDRL for 540 epochs (54000 gradient updat
 
 ![eval_mean](readme_files/mycode/lunar_demo_evalmean.png)
 
-This code base works for LunarLander in that the agent will learn to achieve a high score. However, results appear to have a much higher variance across seeds here than in the original papers, especially for UDRL Sparse Lunar-Lander and RCP-Advantages. Even after correspondence with the authors (which was limited and slow) I have been unable to identify the bug or discrepancy in my code leading to these differences in performance outlined below: 
+This code base works for LunarLander in that the agent will learn to achieve a high score. However, results appear to have a much higher variance across seeds here than in the original papers, especially for UDRL Sparse Lunar-Lander and RCP-Advantages. Even after correspondence with the authors of RCP, I have been unable to identify the bug or discrepancy in my code leading to these differences in performance outlined below: 
 
 ### Performance Comparisons:
 

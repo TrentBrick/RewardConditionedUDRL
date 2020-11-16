@@ -147,32 +147,35 @@ def main(args):
         )
     else: 
         model_params = dict(
-            lr= 0.001, #tune.grid_search(np.logspace(-4, -2, num = 101)),
-            hidden_sizes = [32,64], #[32,64,64,64],
+            lr= 0.00035, #tune.grid_search(np.logspace(-4, -2, num = 101)),
+            hidden_sizes = [32,128, 128, 128], 
             desire_scalings =True,
             horizon_scale = 0.01, #tune.grid_search( [0.01, 0.015, 0.02, 0.025, 0.03]), #(0.02, 0.01), # reward then horizon
-            reward_scale = 0.01, #tune.grid_search( [0.01, 0.015, 0.02, 0.025, 0.03]),
-            state_scale = 1.0,
+            reward_scale = 0.025, #tune.grid_search( [0.01, 0.015, 0.02, 0.025, 0.03]),
             num_grad_steps = 100
             #tune.grid_search([[32], [32, 32], [32, 64], [32, 64, 64], [32, 64, 64, 64],
             #[64], [64, 64], [64, 128], [64, 128, 128], [64, 128, 128, 128]])
         )
+
+    config.update(args_dict)
+    config.update(env_params)
+    config.update(model_params)
 
     if config['use_RCP_buffer']:
         config['batch_size'] = 256
         config['max_buffer_size'] = 100000
     else: 
         config['batch_size'] = 768 #tune.grid_search([512, 768, 1024, 1536, 2048]),
-        config['max_buffer_size'] = 250 #tune.grid_search([300, 400, 500, 600, 700]),
-        config['last_few'] = 25 #tune.grid_search([25, 75]),
+        config['max_buffer_size'] = 500 #tune.grid_search([300, 400, 500, 600, 700]),
+        config['last_few'] = 75 #tune.grid_search([25, 75]),
 
-    config.update(args_dict)
-    config.update(env_params)
-    config.update(model_params)
-
-    # TODO: do I need to scale different parts of this differently? 
-    if config['desire_scalings']:
-        config['state_scale'] = np.repeat(config['state_scale'], env_params['STORED_STATE_SIZE']).tolist()
+    # Param changes for UDRL Sparse. 
+    if args.gamename == 'lunarlander-sparse':
+        config['batch_size'] = 512
+        config['lr'] = 0.0005
+        config['reward_scale'] = 0.015
+        config['horizon_scale'] = 0.015
+        config['last_few'] = 25
 
     # Load in the Model, Loggers, etc:
     if args.use_tune:

@@ -8,8 +8,7 @@ import numpy as np
 
 class UpsdBehavior(nn.Module):
     '''
-    Behavour function that produces actions based on a state and command.
-    Schmidhuber. 
+    UDRL behaviour function that produces actions based on a state and command. 
     
     Params:
         state_size (int)
@@ -22,24 +21,31 @@ class UpsdBehavior(nn.Module):
             action_size, hidden_sizes,
             desires_scalings ):
         super().__init__()
-        self.desires_scalings = torch.FloatTensor(desires_scalings[:desires_size])
+        self.desires_scalings = torch.FloatTensor(desires_scalings)
         
-        self.state_fc = nn.Sequential(nn.Linear(state_size, hidden_sizes[0]), 
-                                      nn.Tanh())
+        l = nn.Linear(state_size, hidden_sizes[0])
+        torch.nn.init.orthogonal_(l.weight, gain=1)
+        self.state_fc = nn.Sequential(l, nn.Tanh() )
         
-        self.command_fc = nn.Sequential(nn.Linear(desires_size, hidden_sizes[0]), 
-                                        nn.Sigmoid())
+        l = nn.Linear(desires_size, hidden_sizes[0])
+        torch.nn.init.orthogonal_(l.weight, gain=1)
+        self.command_fc = nn.Sequential(l, nn.Sigmoid() )                   
 
         layers = nn.ModuleList()
-        hidden_sizes.append(action_size)
-        output_activation= nn.Identity
         activation = nn.ReLU
+        output_activation= nn.Identity
         for j in range(len(hidden_sizes)-1):
-            act = activation if j < len(hidden_sizes)-2 else output_activation
-            layers.append(nn.Linear(hidden_sizes[j], hidden_sizes[j+1]) )
-            layers.append(act())
+            l = nn.Linear(hidden_sizes[j], hidden_sizes[j+1])
+            torch.nn.init.orthogonal_(l.weight, gain=np.sqrt(2))
+            layers.append(l)
+            layers.append(activation())
+
+        # output layer:
+        # uses default Pytorch init.  
+        layers.append(nn.Linear(hidden_sizes[-1], action_size ))
+        layers.append(output_activation())
         self.output_fc = nn.Sequential(*layers)
-    
+            
     def forward(self, state, command):
         '''Forward pass
         
@@ -61,7 +67,6 @@ class UpsdBehavior(nn.Module):
         return self.output_fc(embedding)
 
 class UpsdModel(nn.Module):
-    #TODO: get the desire state for this working. 
     """ Using Fig.1 from Reward Conditioned Policies 
         https://arxiv.org/pdf/1912.13465.pdf """
     def __init__(self, state_size, desires_size, 

@@ -51,7 +51,7 @@ class LightningTemplate(pl.LightningModule):
             self.hparams['hidden_sizes'])
         else: 
             # concatenate all of these lists together. 
-            desires_scalings = [hparams['reward_scale']]+[hparams['horizon_scale']]+ hparams['state_scale']
+            desires_scalings = [hparams['reward_scale'], hparams['horizon_scale']]
             self.model = UpsdBehavior( self.hparams['STORED_STATE_SIZE'], 
                 self.hparams['desires_size'],
                 self.hparams['ACTION_SIZE'], 

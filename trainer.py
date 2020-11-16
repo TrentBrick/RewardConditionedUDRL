@@ -59,8 +59,8 @@ def main(args):
             use_RCP_model = False, 
             use_exp_weight_losses = False,
 
-            desire_discounted_rew_to_go = False, #tune.grid_search( [True, False]),
-            desire_cum_rew = True, #tune.grid_search( [True, False]), # mutually exclusive to discounted rewards to go. 
+            desire_discounted_rew_to_go = True, #tune.grid_search( [True, False]),
+            desire_cum_rew = False, #tune.grid_search( [True, False]), # mutually exclusive to discounted rewards to go. 
             desire_horizon = True, #tune.grid_search( [True, False]),
             discount_factor = 1.0, #ie. no discount
             

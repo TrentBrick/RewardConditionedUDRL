@@ -189,10 +189,7 @@ class Agent:
 
                 desires = []
                 for key in self.hparams['desires_order']:
-                    if 'final_state' in key or 'next_obs' in key: 
-                        desires.append( current_desires_dict[key.split('desire_')[-1]] )
-                    else: 
-                        desires.append( current_desires_dict[key.split('desire_')[-1]].unsqueeze(1) )
+                    desires.append( current_desires_dict[key.split('desire_')[-1]].unsqueeze(1) )
                     
                 action = self.model(obs, desires )
 
@@ -265,9 +262,11 @@ class Agent:
                     if self.hparams['use_RCP_desire_sampling']:
                         pass 
                     else: 
+                        # lower the desired reward.  
                         current_desires_dict['discounted_rew_to_go'] = torch.Tensor( [min(current_desires_dict['discounted_rew_to_go']-reward, self.env_params['max_reward'])])
 
                 if self.hparams['desire_cum_rew']:
+                    # don't do any updating. 
                     pass
 
                 if self.hparams['desire_horizon']:

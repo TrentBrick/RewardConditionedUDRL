@@ -10,7 +10,7 @@ Example rollout of agent trained using UDRL for 540 epochs (54000 gradient updat
 
 ![eval_mean](readme_files/mycode/lunar_demo_evalmean.png)
 
-This code base works for LunarLander in that the agent will learn to achieve a high score. However, results appear to have a much higher variance across seeds here than in the original papers, especially for UDRL Sparse Lunar-Lander and RCP-Advantages. Even after correspondence with the authors of RCP, I have been unable to identify the bug or discrepancy in my code leading to these differences in performance outlined below: 
+This code base works for LunarLander in that the agent will learn to achieve a high score. However, results appear to have a much higher variance across seeds here than in the original papers, especially for UDRL Sparse Lunar-Lander and RCP-Advantages. Thanks to [Rupesh Srivastava](https://rupeshks.cc/), first author of [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) for his helpful correspondence in helping to reproduce their paper results. After correspondence with the authors of RCP, I remain unable to identify the bug or discrepancy in my code leading to these differences in performance outlined below: 
 
 ### Performance Comparisons:
 
@@ -69,7 +69,7 @@ There are a few other implementations of Upside Down Reinforcement Learning (UDR
 All experiments can be run on your local computer using CPUs for between five and fifteen hours of runtime depending on settings. Parallel processing is implemented to be able to run multple seeds at the same time but only where each seed uses one CPU. However, because of Pytorch Lightning and the Ray Tune implmementation, scaling up to more CPUs and GPUs is easy.
 
 * `train.py` - has almost all of the relevant configuration settings for the code. Also starts either ray tune (for hyperparam optimization) or a single model (for debugging). Able to switch between different model and learning types in a modular fashion
-* `bash_train.sh` - uses GNU parallel to run multiple seeds of a model
+* `bash_train.sh` - uses GNU parallel to run multiple seeds of a model. NB currently need to make the final directory of experiment results before running (else each worker will try to make the same directory)
 * `lighting-trainer.py` - meat of the code. Uses pytorch lightning for training
 * `control/agent.py` - runs rollouts of the environment and processes their rewards
 * `envs/gym_params.py` - provides environment specific parameters
@@ -112,7 +112,9 @@ To run Ray hyperparameter tuning, uncomment all of the `ray.tune()` functions fo
 
 Checkpointing of model is turned on by default and will save a new version of the model whenever the policy loss declines (this is defined at approx line 194 for trainer.py). To turn off model checkpointing add the flag `--no_checkpoint`. 
 
-Multi-seed training. To test the model running multple seeds in parallel, modify the code in `bash_train.sh` which uses GNU parallel to run multiple seeds where each seed gets its own core to run on. The default is running seeds 25 to 29 inclusive. To run more seeds it is advised to use Ray Tune and line approx. 181 of `trainer.py` can be used to define the seeds to be tried. Ray Tune provides performance of each agent but currentlyl lacks as granular information during training.
+Multi-seed training. To test the model running multple seeds in parallel, modify the code in `bash_train.sh` which uses GNU parallel to run multiple seeds where each seed gets its own core to run on. The default is running seeds 25 to 29 inclusive. NB currently need to make the final directory of experiment results before running (else each worker will try to make the same directory)
+
+To run more seeds it is advised to use Ray Tune and line approx. 181 of `trainer.py` can be used to define the seeds to be tried. Ray Tune provides performance of each agent but currentlyl lacks as granular information during training.
 
 In order to record episodes from epochs, used the flag `--recording_epoch_interval`. Each epoch of this interval, `record_n_rollouts_per_epoch` (in config dict, default =1) will be saved out. However, to do this either you need to run a single seed on your local computer or have xvfb installed on your server (see below for in depth instructions on how to re-install GPU drivers that incorporate xvfb). The alternative is to ensure model checkpointing is turned on and render your saved models after training using the `--eval_agent` flag and providing it with the path to the trained model.
 
@@ -133,6 +135,7 @@ To visualize the performance of a trained model, locate the model's checkpoint w
 Nice to haves that either I (or you, reader!) will implement.
 
 * Update the PyTorch Lightning loggers and track `eval_mean` instead of the policy loss. <https://github.com/PyTorchLightning/pytorch-lightning/issues/4584#issuecomment-724185789> 
+* Make `bash_train.sh` create the experiment results directory so each worker doesn't try to make the same file throwing an error. 
 * Implement the TakeCover-v0 environment. 
 * Make buffers more efficient by storing whole rollout together and computing relevant statistics on the fly.
 * Enable multicore training and Gym rollouts (would probably be best to use Ray RL package for this.)

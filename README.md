@@ -1,6 +1,6 @@
 # Reward Conditioned Policies / Upside Down Reinforcement Learning
 
-This is an open source library that seeks to replicate the results from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) (RCP) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) (UDRL) neither of which shared their implementations.
+This is an open source library that replicates the results (except for RCP-A) from the papers: [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) (RCP) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) (UDRL) neither of which shared their implementations.
 
 ## State of the Codebase:
 
@@ -10,7 +10,7 @@ Example rollout of agent trained using UDRL for 540 epochs (54000 gradient updat
 
 ![eval_mean](readme_files/mycode/lunar_demo_evalmean.png)
 
-This code base works for LunarLander in that the agent will learn to achieve a high score. However, results appear to have a much higher variance across seeds here than in the original papers, especially for UDRL Sparse Lunar-Lander and RCP-Advantages. Thanks to [Rupesh Srivastava](https://rupeshks.cc/), first author of [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) for his helpful correspondence in helping to reproduce their paper results. After correspondence with the authors of RCP, I remain unable to identify the bug or discrepancy in my code leading to these differences in performance outlined below: 
+This code base works for LunarLander in that the agent will learn to achieve a high score across different random seeds. For UDRL, Thanks to [Rupesh Srivastava](https://rupeshks.cc/), first author of [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) for his helpful correspondence in helping to reproduce their paper results robustly. For RCP, I believe the results for RCP-R have been replicated but the results for RCP-A are higher variance across seeds than in the paper. After brief correspondence with the authors of RCP, I remain unable to identify the bug or discrepancy in my code leading to these differences in performance.
 
 ### Performance Comparisons:
 
@@ -20,21 +20,21 @@ UDRL in LunarLander environment in this codebase:
 
 X-axis is number of gradient updates (100 per epoch). 20 rollouts per epoch. If each rollout is approx 300 environment steps then multiply this X-axis by a factor of (20*300)/100 = 60 to get environment steps.
 
-NB. Because of different rollout lengths for each seed, some of them did not finish their training steps but I killed the job a bit early to generate all of these comparisons.
+NB. I had other code running during this job so it should actually take closer to 10 hours.
 
 Figure from paper:
 
 ![UDRL-paper](readme_files/papercode/UDRL.png)
-Average of 20 random seeds (5 in my case.) This is the only case where my code seems to reproduce the figure. For example, the 100K X-axis point in my code corresponds to approx. 0.6x10^7 environment steps. And the average looks to be a bit higher than 100.
+Average of 20 random seeds (5 in my case.) Appears to be replicated by my results.
 
 UDRL in Sparse-LunarLander:
 
 ![UDRL-sparse](readme_files/mycode/UDRL-sparse_evalmean.png)
-(one of the seeds died at the start of training.)
 
 Figure from paper:
 
 ![UDRL-paper](readme_files/papercode/UDRL-sparse.png)
+Average of 20 random seeds (5 in my case.) Appears to be replicated by my results.
 
 RCP-R with exponential weighting:
 
@@ -56,9 +56,7 @@ Figure from paper:
 
 Average of 5 seeds. The X-axes are comparable here. Performance either seems to match that of the figure RCP-A (seeds 27 and 28) or does much worse.
 
-I am hoping by open-sourcing this codebase, the RL community will be able to improve upon it and collectively succeed in replicating these papers. Right now, if I had to guess, the problem is either a fundamental bug I have completely missed, or more likely some small but crucial implementation detail like a form of normalization or a certain hyperparameter setting eg the Beta value used in RCP.
-In [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) a list of hyperparameters tried is given but the best hyperparameters found never are!!! I used Ray Tune to search over all of the same hyperparameters but the results were too seed dependent to infer which hyperparameters were superior.
-In [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) none of the implementation details searched over or used are provided.
+I am hoping by open-sourcing this codebase, the RL community will be able to improve upon it and collectively succeed in replicating RCP-A. Right now, if I had to guess, the problem is either a fundamental bug I have completely missed, or more likely some small but crucial implementation detail like a form of normalization or a certain hyperparameter setting eg the Beta value used in RCP.
 
 ## Other Implementations:
 
@@ -227,7 +225,7 @@ NB. If you are not using Conda be sure either uninstall it or to call `conda dea
 
 ## Acknowledgements:
 
-Thanks to the open source implementation of Upside Down Reinforcement Learning: <https://github.com/jscriptcoder/Upside-Down-Reinforcement-Learning> which provided an initial test base. Also to [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) for initial research and results (I just wish both of these papers shared their code...).
+Thanks to the open source implementation of Upside Down Reinforcement Learning: <https://github.com/jscriptcoder/Upside-Down-Reinforcement-Learning> which provided an initial test base. Also to [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) for initial research and results (I just wish both of these papers shared their code and all implementation details upon publication and made this repository unnecessary).
 
 ## Authors:
 

@@ -1,5 +1,5 @@
 # pylint: disable=no-member
-from models import UpsdModel, UpsdBehavior, AdvantageModel
+from models import UpsdModel, UpsdBehavior, AdvantageModel, UpsdHyper
 import torch
 import torch.nn.functional as F 
 from torch.distributions import Normal, Categorical
@@ -44,12 +44,17 @@ class LightningTemplate(pl.LightningModule):
         if hparams['desire_advantage']:
             self.desired_advantage_dist = [-10000000, -10000000]
 
-        if self.hparams['use_RCP_model']:
+        if self.hparams['model_type'] == 'Hyper':
+            self.model = UpsdHyper(self.hparams['STORED_STATE_SIZE'],
+            self.hparams['desires_size'], 
+            self.hparams['ACTION_SIZE'], 
+            self.hparams['hidden_sizes']) 
+        elif self.hparams['model_type'] == 'RCP':
             self.model = UpsdModel(self.hparams['STORED_STATE_SIZE'],
             self.hparams['desires_size'], 
             self.hparams['ACTION_SIZE'], 
             self.hparams['hidden_sizes'])
-        else: 
+        elif self.hparams['model_type'] == 'UDRL': 
             # concatenate all of these lists together. 
             desires_scalings = [hparams['reward_scale'], hparams['horizon_scale']]
             self.model = UpsdBehavior( self.hparams['STORED_STATE_SIZE'], 
@@ -57,6 +62,8 @@ class LightningTemplate(pl.LightningModule):
                 self.hparams['ACTION_SIZE'], 
                 self.hparams['hidden_sizes'], 
                 desires_scalings )
+        else: 
+            raise Exception("Model Type not recognized")
 
         if self.hparams['desire_advantage']:
             self.advantage_model = AdvantageModel(self.hparams['STORED_STATE_SIZE'] )
@@ -74,7 +81,7 @@ class LightningTemplate(pl.LightningModule):
     
     def eval_agent(self):
         self.desire_dict = dict(
-            horizon = 700,
+            horizon = 900,
             reward_dist = (300,1),
             advantage_dist = (160,10)
         )
@@ -323,6 +330,7 @@ class LightningTemplate(pl.LightningModule):
         if self.hparams['continuous_actions']: 
             return F.mse_loss(pred_action, real_action ,reduction='none').sum(dim=1)
         else: 
+            # does the softmax for me. 
             return F.cross_entropy(pred_action, real_action, reduction='none')
 
     def validation_step(self, batch, batch_idx):

@@ -1,4 +1,5 @@
-import torch 
+import torch
+
 
 def get_env_params(gamename):
 
@@ -6,10 +7,13 @@ def get_env_params(gamename):
         env_params = {
             'env_name': 'CarRacing-v0',
             'desired_horizon': 30,
+            'sparse':False,
             'num_action_repeats': 5,
-            'time_limit':1000, # max time limit for the rollouts generated
+            'avg_episode_length':1000, #NB not sure if this is right!
+            'time_limit':None, # max time limit for the rollouts generated
             'NUM_IMG_CHANNELS': 3,
             'ACTION_SIZE': 3,
+            'STORED_ACTION_SIZE': 1,
             'init_cem_params': ( torch.Tensor([0.,0.7,0.]), 
                         torch.Tensor([0.5,0.7,0.3]) ),
             'LATENT_SIZE': 32, 
@@ -31,12 +35,15 @@ def get_env_params(gamename):
         env_params = {
             'env_name': 'Pendulum-v0',
             'continuous_actions':True,
+            'sparse':False,
             'desired_reward':10,
             'desired_horizon': 30,
             'num_action_repeats': 1,
-            'time_limit':1000, # max time limit for the rollouts generated
+            'avg_episode_length':200, # NB not sure if this is right!
+            'time_limit':None, # max time limit for the rollouts generated
             'NUM_IMG_CHANNELS': 3,
             'ACTION_SIZE': 1,
+            'STORED_ACTION_SIZE': 1,
             'STORED_STATE_SIZE': 3,
             'init_cem_params': ( torch.Tensor([0.]), 
                         torch.Tensor([2.]) ),
@@ -85,8 +92,11 @@ def get_env_params(gamename):
         env_params = {
             'desired_horizon': 30,
             'num_action_repeats': 3,
+            'avg_episode_length':200, # NB not sure if this is right!
             'NUM_IMG_CHANNELS': 3,
+            'sparse':False,
             'ACTION_SIZE': 3,
+            'STORED_ACTION_SIZE': 1,
             'init_cem_params': ( torch.Tensor([0.,0.,0.]), 
                 torch.Tensor([1.,1.,1.]) ),
             'LATENT_SIZE': 32, 

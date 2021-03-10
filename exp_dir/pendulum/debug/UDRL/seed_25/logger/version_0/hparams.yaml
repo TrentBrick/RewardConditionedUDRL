@@ -1,0 +1,117 @@
+ACTION_SIZE: 1
+EMBEDDING_SIZE: 3
+IMAGE_DEFAULT_SIZE: 96
+IMAGE_RESIZE_DIM: 64
+LATENT_RECURRENT_SIZE: 256
+LATENT_SIZE: 3
+NODE_SIZE: 128
+NUM_IMG_CHANNELS: 3
+STORED_ACTION_SIZE: 1
+STORED_STATE_SIZE: 3
+action_noise: 0.3
+antithetic: false
+avg_episode_length: 200
+batch_size: 768
+continuous_actions: true
+desire_advantage: false
+desire_cum_rew: false
+desire_discounted_rew_to_go: true
+desire_horizon: true
+desire_mu_minus_std: false
+desire_scalings: true
+desired_horizon: 30
+desired_reward: 10
+desires_official_order:
+- desire_discounted_rew_to_go
+- desire_cum_rew
+- desire_horizon
+- desire_advantage
+desires_order:
+- desire_discounted_rew_to_go
+- desire_horizon
+desires_size: 2
+discount_factor: 1.0
+display: false
+env_name: Pendulum-v0
+eval_agent: null
+eval_episodes: 10
+eval_every: 10
+exp_name: debug
+game_dir: exp_dir/pendulum/debug/UDRL/seed_25
+gamename: pendulum
+give_raw_pixels: false
+grad_clip_val: 100
+hidden_sizes:
+- 32
+- 128
+- 128
+- 128
+- 1
+horizon_scale: 0.01
+implementation: UDRL
+init_cem_params: !!python/tuple
+- !!python/object/apply:torch._utils._rebuild_tensor_v2
+  - !!python/object/apply:torch.storage._load_from_bytes
+    - !!binary |
+      gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAA
+      AGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAA
+      aW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApGbG9hdFN0b3Jh
+      Z2UKcQFYDwAAADE0MDYyMDY4NDAyNjM2OHECWAMAAABjcHVxA0sBTnRxBFEugAJdcQBYDwAAADE0
+      MDYyMDY4NDAyNjM2OHEBYS4BAAAAAAAAAAAAAAA=
+  - 0
+  - !!python/tuple
+    - 1
+  - !!python/tuple
+    - 1
+  - false
+  - !!python/object/apply:collections.OrderedDict
+    - []
+- !!python/object/apply:torch._utils._rebuild_tensor_v2
+  - !!python/object/apply:torch.storage._load_from_bytes
+    - !!binary |
+      gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAA
+      AGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAA
+      aW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApGbG9hdFN0b3Jh
+      Z2UKcQFYDwAAADE0MDYyMDY4MzY3MTQwOHECWAMAAABjcHVxA0sBTnRxBFEugAJdcQBYDwAAADE0
+      MDYyMDY4MzY3MTQwOHEBYS4BAAAAAAAAAAAAAEA=
+  - 0
+  - !!python/tuple
+    - 1
+  - !!python/tuple
+    - 1
+  - false
+  - !!python/object/apply:collections.OrderedDict
+    - []
+last_few: 75
+logdir: exp_dir
+lr: 0.00035
+max_buffer_size: 100000
+model_type: Hyper
+no_checkpoint: false
+no_expo_weighting: true
+num_action_repeats: 1
+num_grad_steps: 100
+num_rand_action_rollouts: 50
+num_val_batches: 2
+num_workers: 1
+print_statements: 0
+random_action_epochs: 1
+record_n_rollouts_per_epoch: 1
+recording_epoch_interval: -1
+reload: null
+reward_prior_mu: 0.0
+reward_prior_sigma: 0.2
+reward_scale: 0.025
+seed: 25
+sparse: false
+td_lambda: 0.95
+time_limit: null
+training_rollouts_per_worker: 20
+trim_shape: null
+use_RCP_buffer: false
+use_RCP_desire_sampling: false
+use_exp_weight_losses: false
+use_lambda_td: false
+use_tune: false
+use_vae: false
+val_func_update_iterval: 5

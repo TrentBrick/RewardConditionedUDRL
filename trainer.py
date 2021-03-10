@@ -56,7 +56,7 @@ def main(args):
         imp = dict(
             use_RCP_desire_sampling=False, 
             use_RCP_buffer = False, 
-            use_RCP_model = False, 
+            model_type = "Hyper", # UDRL
             use_exp_weight_losses = False,
 
             desire_discounted_rew_to_go = True, #tune.grid_search( [True, False]),
@@ -73,7 +73,7 @@ def main(args):
         imp = dict(
             use_RCP_desire_sampling=True, 
             use_RCP_buffer = True, 
-            use_RCP_model = True, 
+            model_type = "RCP", 
             
             desire_cum_rew = False, #tune.grid_search( [True, False]), # mutually exclusive to discounted rewards to go. 
             desire_horizon = False, #tune.grid_search( [True, False]),
@@ -138,7 +138,7 @@ def main(args):
     if config['desire_cum_rew'] and config['desire_discounted_rew_to_go']:
         raise Exception("Cant have both of these live at the same time.")
 
-    if config['use_RCP_model']:
+    if config['model_type'] == 'RCP':
         model_params = dict(
             lr= 0.001, #tune.grid_search(np.logspace(-4, -2, num = 101)),
             hidden_sizes = [64,64],#[128,128,64],
@@ -325,7 +325,7 @@ if __name__ =='__main__':
     parser.add_argument('--exp_name', type=str, default='debug',
                         help="Name of the experiment.")                
     
-    parser.add_argument('--recording_epoch_interval', type=int, default=10,
+    parser.add_argument('--recording_epoch_interval', type=int, default=-1,
                         help="How often a recording of the epoch will be made. Make -1 if don't want recordings to be made. ")
 
     parser.add_argument('--reload', type=str, default=None,

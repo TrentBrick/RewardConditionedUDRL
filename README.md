@@ -70,7 +70,7 @@ All experiments can be run on your local computer using CPUs for between five an
 * `bash_train.sh` - uses GNU parallel to run multiple seeds of a model. NB currently need to make the final directory of experiment results before running (else each worker will try to make the same directory)
 * `lighting-trainer.py` - meat of the code. Uses pytorch lightning for training
 * `control/agent.py` - runs rollouts of the environment and processes their rewards
-* `envs/gym_params.py` - provides environment specific parameters
+* `envs/gym_params.py` - provides environment specific parameters. NB! Take a careful look at these for what you are trying to do. For example, the average episode length is used for the UDRL buffer size so that it can store approximately the right number of rollouts.
 * `exp_dir/` - contains all experiments separated by: environment_name/experiment_name/algorithm-implementation/seed/logged_versions
 * `models/upsd_model.py` - contains the [Reward Conditioned Policies](https://arxiv.org/pdf/1912.13465.pdf) and [Training Agents using Upside-Down Reinforcement Learning](https://arxiv.org/abs/1912.02877) upside down models.
 * `models/advantage_model.py` - model to learn the advantage of actions, used for RCP-A.
@@ -128,6 +128,8 @@ If you have run `python trainer.py` like in the above example (using seed 25 in 
 `tensorboard --logdir RewardConditionedUDRL/exp_dir/lunarlander/debug/UDRL/seed_25/logger/` and going to the URL generated. (Dont add the seed to the path if you are trying to view across seeds.)
 
 To visualize the performance of a trained model, locate the model's checkpoint which will be under: `exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*SEED*/epoch=*VALUE*.ckpt` and use the flag `--eval_agent exp_dir/*ENVIRONMENT_NAME*/*EXPERIMENT_NAME*/*IMPLEMENTATION-NAME*/*SEED*/epoch=*VALUE*.ckpt`.
+
+## Running Different Environments:
 
 ## TODOs:
 Nice to haves that either I (or you, reader!) will implement.
